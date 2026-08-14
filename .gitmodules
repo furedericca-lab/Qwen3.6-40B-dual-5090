@@ -1,9 +1,3 @@
-[submodule "llm-compressor"]
-	path = llm-compressor
-	url = https://github.com/vllm-project/llm-compressor.git
-[submodule "compressed-tensors"]
-	path = compressed-tensors
-	url = https://github.com/vllm-project/compressed-tensors.git
 [submodule "llama.cpp"]
 	path = llama.cpp
 	url = https://github.com/furedericca-lab/llama.cpp.git
