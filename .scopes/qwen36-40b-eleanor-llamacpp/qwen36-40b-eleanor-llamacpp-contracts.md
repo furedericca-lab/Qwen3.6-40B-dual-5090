@@ -24,9 +24,12 @@ llama.cpp on dual RTX 5090 with 128K context.
 | Tensor count | `1290` |
 | Native context length | `262144` (256K) |
 | Embedding length | `5120` |
-| Attention heads / KV heads | `24 / 4` |
+| Attention heads / KV heads | `24 / 4` (GQA 6:1) |
+| Head dimension | `256` (derived from `attn_k.weight` shape `5120x1024`) |
 | SSM state size / inner size | `128 / 6144` |
 | SSM group count | `16` |
+| Dense attention layers | `25` (24 backbone at indices 3,7,11,...,95 + MTP layer 96) |
+| SSM/linear attention layers | `72` (use recurrent state, no KV cache) |
 | MTP | `nextn_predict_layers: 1` (4 MTP tensors in `blk.96.nextn.*`) |
 | Imatrix | embedded (181 chunks, 744 entries) |
 | RoPE freq base | `10000000` |
@@ -44,13 +47,17 @@ overwritten, renamed, or deleted without explicit user authorization.
 -dev CUDA0,CUDA1
 -sm layer
 --fit on
---fit-target 2048,2048
+--fit-target 8192,8192
 -no-kv-offload
 -ctk f16 -ctv f16
 -c 131072
 -np 1
 -b 512 -ub 128
 -fa on
+--spec-type draft-mtp
+--spec-draft-n-max 3
+--temp 0.6
+--top-p 0.95
 --host 127.0.0.1 --port 8000
 ```
 
@@ -72,11 +79,55 @@ Do not jump to context reduction before trying batch reduction.
 
 - Dual RTX 5090: 2 x 32607 MiB VRAM (approximately 64 GiB total)
 - System RAM: approximately 45 GiB
-- The Q8_0 model weights are approximately 40 GiB, fitting within dual-GPU VRAM
-  with approximately 24 GiB headroom for KV cache and compute
-- KV cache for 128K context with F16: estimated 8-16 GiB across both GPUs
-- F16 KV offload to system RAM (`--no-kv-offload` is the default, but the flag
-  explicitly prevents unexpected offload behavior)
+- The Q8_0 model weights are approximately 40.2 GiB, fitting within dual-GPU VRAM
+  with approximately 8 GiB headroom after KV cache and compute
+
+### KV Cache Budget (128K, F16)
+
+The qwen35 architecture is hybrid: 72 of 96 transformer layers use SSM (linear
+attention with recurrent state, no KV cache), and 25 layers use dense attention
+(24 backbone layers at indices 3,7,11,...,95 plus the MTP layer 96). Only the
+dense-attention layers consume KV cache.
+
+Verified GGUF metadata for KV sizing:
+
+```text
+head_count:     24
+head_count_kv:  4          (GQA 6:1)
+head_dim:       256        (derived from attn_k.weight shape 5120x1024)
+dense_attn_layers: 25      (24 backbone + 1 MTP)
+context_length: 131072     (128K target)
+KV precision:   f16        (2 bytes per element)
+```
+
+Per-layer KV cache (F16, 128K context):
+
+```text
+K: 25 layers * 4 heads * 256 dim * 131072 tokens * 2 bytes = 6,710,886,400 bytes (~6.25 GiB)
+V: same as K                                                = 6,710,886,400 bytes (~6.25 GiB)
+Total KV:                                                   ~12.5 GiB (~6.25 GiB per GPU)
+```
+
+### VRAM Allocation (64 GiB total)
+
+```text
+Model weights Q8_0:       ~40.2 GiB  (62.8%)
+KV cache (128K, F16):     ~12.5 GiB  (19.5%)
+CUDA runtime:              ~1.0 GiB  ( 1.6%)
+Compute buffer:            ~1.5 GiB  ( 2.3%)
+SSM recurrent state:       ~0.5 GiB  ( 0.8%)
+──────────────────────────────────────────────
+Total:                    ~55.7 GiB
+Headroom:                  ~8.3 GiB  (13.0%)
+```
+
+The `--fit-target 8192,8192` (8 GiB per GPU reserved for KV) accommodates the
+6.25 GiB/GPU KV requirement plus compute buffer overhead. The previous value of
+`2048,2048` was insufficient — it would only support approximately 32K context.
+
+`--no-kv-offload` keeps all KV cache on GPU. With only 45 GiB system RAM and
+40 GiB model weights loaded via DIO, CPU KV offload would cause severe memory
+pressure and is not used.
 
 ## Build Contract
 

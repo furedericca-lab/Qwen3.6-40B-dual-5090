@@ -11,7 +11,8 @@
     "anchors": [],
     "definition_pages": [],
     "pages": [
-      ".wiki/how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md"
+      ".wiki/how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md",
+      ".wiki/reference/qwen35-kv-cache-budget.md"
     ],
     "symbols": {}
   },

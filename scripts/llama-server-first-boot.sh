@@ -22,7 +22,7 @@ exec "$server" \
   -dev CUDA0,CUDA1 \
   -sm layer \
   --fit on \
-  --fit-target 2048,2048 \
+  --fit-target 8192,8192 \
   --no-kv-offload \
   -ctk f16 \
   -ctv f16 \
@@ -31,6 +31,8 @@ exec "$server" \
   -b 512 \
   -ub 128 \
   -fa on \
+  --spec-type draft-mtp \
+  --spec-draft-n-max 3 \
   --temp 0.6 \
   --top-p 0.95 \
   --host 127.0.0.1 \

@@ -23,16 +23,23 @@ Tasks:
   - DoD: GGUF header confirms `qwen35` architecture, 97 blocks, Q8_0 file type,
     `nextn_predict_layers: 1`, 1290 tensors, embedded imatrix.
   - Evidence: `gguf_reader` metadata dump recorded.
+  - Extended: Verified `head_dim=256` (from `attn_k.weight` shape `5120x1024`),
+    25 dense attention layers (24 backbone + MTP), 72 SSM layers. KV cache
+    budget for 128K F16 calculated at ~12.5 GiB total (~6.25 GiB/GPU).
 
-- [ ] T003 [Infra] Record clean boot state
+- [x] T003 [Infra] Record clean boot state
   - DoD: Kernel version, taint (0 or 4096), no BAD_PAGE/Oops/Xid in current
     boot journal; idle GPUs; sufficient RAM.
-  - Evidence: `uname -r`, `cat /proc/sys/kernel/tainted`, `journalctl -k -b`,
-    `nvidia-smi`, `free -h` outputs recorded.
+  - Evidence: `uname -r` = 7.0.0-28-generic, taint=4096 (DKMS O), no
+    BAD_PAGE/Oops/NVIDIA-Xid in journal; both GPUs idle (2 MiB used);
+    40 GiB RAM free.
 
-- [ ] T004 [Docs] Write launcher script
+- [x] T004 [Docs] Write launcher script
   - DoD: `scripts/llama-server-first-boot.sh` exists, is executable, and matches
     the runtime contract (128K, MTP, dual-GPU, layer split, DIO, F16 KV).
   - Evidence: `bash -n` syntax check passes; script content matches contract.
+  - Parameters: `--fit-target 8192,8192` (corrected from 2048,2048 based on
+    128K F16 KV budget of 6.25 GiB/GPU), `--spec-type draft-mtp
+    --spec-draft-n-max 3` (enables GGUF-embedded MTP speculative decoding).
 
 Checkpoint: Binary, artifact, and system are ready for Phase 2 startup test.
