@@ -86,22 +86,28 @@ Serve using `scripts/llama-server-first-boot.sh`, which calls the locally built
 -dev CUDA0,CUDA1
 -sm layer
 --fit on --fit-target 2048,2048
---no-kv-offload
 -ctk f16 -ctv f16
 -c 131072 -np 1
 -b 512 -ub 128
 -fa on
+--spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-n-min 0 --spec-draft-p-min 0.75
+--temp 0.6 --top-p 0.95 --top-k 20 --min-p 0 --repeat-penalty 1.0
 --host 127.0.0.1 --port 8000
 ```
 
 Do not use `-ngl all`; it disables auto-fit and requests an impossible
-per-device allocation for a 40 GiB model. Use `--fit on` instead.
+per-device allocation for a 40 GiB model. Use `--fit on` instead. Do not use
+`--no-kv-offload`; KV offload to GPU is the default in llama.cpp, and
+`--no-kv-offload` would force KV to CPU/RAM.
 
 MTP is enabled by default (`nextn_predict_layers: 1` in the GGUF metadata).
-Phase 4 compares MTP-on vs MTP-off.
+`n-max=2` is used because `n-max=3` has a reported Qwen3.6 output drift bug
+(llama.cpp issue #23302). Phase 4 compares MTP-on vs MTP-off and benchmarks
+n=1/2/3.
 
-OOM ladder: reduce `-b`/`-ub` first, then reduce `-c` to 65536, only then
-consider limited CPU offload.
+OOM ladder: reduce `--fit-target` first, then `-ub`, then switch KV to Q8_0
+(`-ctk q8_0 -ctv q8_0`, preserves 128K context), and only then reduce `-c`
+to 65536.
 
 Bind to `127.0.0.1` only. Do not expose the API on a LAN interface unless the
 user explicitly approves it. Do not use CPU weight offload as the primary

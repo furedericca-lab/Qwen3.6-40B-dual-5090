@@ -24,8 +24,9 @@ Tasks:
     `nextn_predict_layers: 1`, 1290 tensors, embedded imatrix.
   - Evidence: `gguf_reader` metadata dump recorded.
   - Extended: Verified `head_dim=256` (from `attn_k.weight` shape `5120x1024`),
-    25 dense attention layers (24 backbone + MTP), 72 SSM layers. KV cache
-    budget for 128K F16 calculated at ~12.5 GiB total (~6.25 GiB/GPU).
+    24 dense attention backbone layers (at indices 3,7,11,...,95), 1 MTP draft
+    layer (blk.96.nextn, separate KV ~0.5 GiB at 128K), 72 SSM layers. Main model
+    KV cache budget for 128K F16 calculated at ~12.0 GiB total (~6.0 GiB/GPU).
 
 - [x] T003 [Infra] Record clean boot state
   - DoD: Kernel version, taint (0 or 4096), no BAD_PAGE/Oops/Xid in current
@@ -38,8 +39,11 @@ Tasks:
   - DoD: `scripts/llama-server-first-boot.sh` exists, is executable, and matches
     the runtime contract (128K, MTP, dual-GPU, layer split, DIO, F16 KV).
   - Evidence: `bash -n` syntax check passes; script content matches contract.
-  - Parameters: `--fit-target 8192,8192` (corrected from 2048,2048 based on
-    128K F16 KV budget of 6.25 GiB/GPU), `--spec-type draft-mtp
-    --spec-draft-n-max 3` (enables GGUF-embedded MTP speculative decoding).
+  - Parameters: `--fit-target 2048,2048` (target VRAM margin per GPU after
+    fitting, not KV reservation), `--spec-type draft-mtp --spec-draft-n-max 2
+    --spec-draft-n-min 0 --spec-draft-p-min 0.75` (n-max=2 because n-max=3
+    has a Qwen3.6 output drift bug, p-min=0.75 to prune low-confidence drafts).
+    No `--no-kv-offload` (KV offload to GPU is the default; --no-kv-offload
+    would force KV to CPU/RAM).
 
 Checkpoint: Binary, artifact, and system are ready for Phase 2 startup test.

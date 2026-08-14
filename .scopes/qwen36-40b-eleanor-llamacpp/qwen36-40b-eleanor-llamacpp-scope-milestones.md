@@ -37,7 +37,7 @@ description: Scope boundaries and milestones for qwen36-40b-eleanor-llamacpp.
 |---|---|---|
 | llama.cpp compiled with CUDA | Complete | sm_120a build exit 0, `--list-devices` sees both RTX 5090 |
 | Scope scaffolded | Complete | `.scopes/qwen36-40b-eleanor-llamacpp/` created |
-| GGUF artifact verified | Complete | Metadata confirms qwen35 arch, 97 blocks, Q8_0, MTP present, head_dim=256, 25 dense attn layers |
+| GGUF artifact verified | Complete | Metadata confirms qwen35 arch, 97 blocks, Q8_0, MTP present, head_dim=256, 24 dense attn layers + 1 MTP draft layer |
 | 128K startup | Pending | `llama-server` loads at `-c 131072` without OOM |
 | API and behavior probes | Pending | `/health`, `/v1/models`, raw/chat/Chinese/JSON/Python pass |
 | MTP comparison | Pending | MTP-on vs MTP-off evidence recorded |

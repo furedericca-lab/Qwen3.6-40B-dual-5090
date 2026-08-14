@@ -27,3 +27,10 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md, reference/qwen35-kv-cache-budget.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
 - Verification: bash -n scripts/llama-server-first-boot.sh; KV budget cross-checked against GGUF tensor shapes
 - Residual risk: --fit-target and --no-kv-offload combination not yet runtime-verified; Phase 2 startup is the validation gate.
+
+## 2026-08-14T10:00:00Z [qwen36-40b-eleanor-llamacpp]
+
+- Summary: Three critical parameter corrections. (1) Removed --no-kv-offload: its semantics are opposite to intent — it disables GPU KV offload, forcing KV to CPU/RAM. The default (KV on GPU) is the target. (2) Reverted --fit-target from 8192,8192 to 2048,2048: --fit-target is the target VRAM margin after fitting, not a KV reservation. 8192,8192 would request 16 GiB total margin, forcing ~7-8 GiB weights to CPU. (3) Changed --spec-draft-n-max from 3 to 2: n-max=3 has a reported Qwen3.6 output drift bug (llama.cpp #23302), author recommends n-max=2. Added --spec-draft-n-min 0, --spec-draft-p-min 0.75, --top-k 20, --min-p 0, --repeat-penalty 1.0. Corrected dense attention layer count: 24 backbone (not 25), MTP draft KV is separate (~0.5 GiB). Main model 128K F16 KV = ~12.0 GiB (not 12.5). Updated OOM ladder: fit-target → ubatch → KV Q8_0 → context reduction.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md, reference/qwen35-kv-cache-budget.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/llama-server-first-boot.sh; contracts.md cross-checked
+- Residual risk: All parameter corrections are pre-runtime; Phase 2 startup is the validation gate.

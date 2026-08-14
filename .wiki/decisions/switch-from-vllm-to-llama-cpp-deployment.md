@@ -13,7 +13,7 @@ tags:
   - vllm
   - migration
 last_checked: 2026-08-14
-updated: 2026-08-14T08:30:00Z
+updated: 2026-08-14T10:00:00Z
 decision_date: 2026-08-14
 ---
 
@@ -28,18 +28,45 @@ CUDA 13.3.
 
 ## Key parameter decisions
 
-- `--fit-target 8192,8192`: Corrected from initial `2048,2048` after
-  calculating the 128K F16 KV cache budget. The qwen35 architecture has 25
-  dense attention layers (not 97) consuming KV cache, with `head_dim=256` and
-  `n_head_kv=4`. Total 128K F16 KV is ~12.5 GiB (~6.25 GiB/GPU). The original
-  2048 MiB/GPU would only support ~32K context.
+### --fit-target 2048,2048 (not 8192,8192)
 
-- `--spec-type draft-mtp --spec-draft-n-max 3`: Enables MTP speculative
-  decoding using the GGUF-embedded `nextn_predict_layers: 1` tensors
-  (`blk.96.nextn.*`). The fork's `src/models/qwen35.cpp` has native nextn
-  support. The reference project (DeepSeek V4) used a noMTP GGUF and did not
-  need this flag.
+`--fit-target` specifies the **target VRAM margin per GPU after fitting** — not
+a KV reservation. The initial attempt to set `8192,8192` was based on
+misunderstanding it as "8 GiB reserved for KV". In reality, asking for 16 GiB
+total margin would force the fit algorithm to offload ~7-8 GiB of weights to
+CPU/RAM, hurting decode speed.
 
-- `--no-kv-offload`: With only 45 GiB system RAM and 40 GiB model weights
-  loaded via DIO, CPU KV offload would cause severe memory pressure. All KV
-  stays on GPU.
+The correct sizing: 128K F16 main KV is ~12.0 GiB total (24 dense attention
+layers, not 25 — the MTP draft layer is separate). Per GPU this is ~6 GiB.
+With ~20 GiB weights per GPU and ~6 GiB KV, there is ~5.5 GiB remaining for
+CUDA/FA/compute. Setting `2048,2048` (2 GiB margin) leaves ~3.5 GiB/GPU for
+runtime allocations beyond the margin — sufficient for `-ub 128` and FA.
+
+### No --no-kv-offload
+
+`--no-kv-offload` was included based on a misunderstanding of its semantics.
+In llama.cpp, KV offload to GPU is the **default** — `--no-kv-offload`
+**disables** GPU KV and forces KV to CPU/RAM. Since the target is all-KV-on-GPU,
+this flag was removed. The default behavior (KV on GPU) is what we want.
+
+### --spec-type draft-mtp --spec-draft-n-max 2 (not 3)
+
+`n-max=3` has a reported bug where it changes deterministic output on Qwen3.6
+(llama.cpp issue #23302). The Eleanor author recommends `n-max=2` with ~60%
+acceptance. Starting at `n-max=2` is the safe baseline; Phase 4 will benchmark
+n=1/2/3.
+
+Additional MTP flags: `--spec-draft-n-min 0` (draft can be as short as 0
+tokens), `--spec-draft-p-min 0.75` (stop drafting when MTP head confidence
+drops below 0.75, reducing wasted computation on low-confidence drafts).
+
+### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
+
+Eleanor author recommendation for precise coding tasks. `repeat-penalty 1.0`
+disables repetition penalty, which is recommended when using MTP.
+
+### OOM ladder: preserve 128K context
+
+The OOM ladder prioritizes preserving 128K context: reduce fit-target, then
+ubatch, then switch KV to Q8_0 (halves KV budget while keeping 128K), and only
+then reduce context to 64K.

@@ -11,7 +11,7 @@ tags:
   - launch
   - llama-server
 last_checked: 2026-08-14
-updated: 2026-08-14T08:30:00Z
+updated: 2026-08-14T10:00:00Z
 ---
 
 # llama-server first-boot recipe for Qwen3.6-40B Q8_0
@@ -21,44 +21,99 @@ First-boot recipe after llama.cpp is built and GGUF is on NVMe:
 
 ## Launch parameters
 
-Uses `--load-mode dio`, `-dev CUDA0,CUDA1`, `-sm layer`, `--fit on`,
-`--fit-target 8192,8192`, `--no-kv-offload`, `-ctk f16 -ctv f16`, `-c 131072`,
-`-np 1`, `-b 512 -ub 128`, `-fa on`, `--spec-type draft-mtp`,
-`--spec-draft-n-max 3`, `--temp 0.6`, `--top-p 0.95`, `--host 127.0.0.1
---port 8000`.
+```text
+--load-mode dio
+-dev CUDA0,CUDA1
+-sm layer
+--fit on
+--fit-target 2048,2048
+-ctk f16 -ctv f16
+-c 131072
+-np 1
+-b 512 -ub 128
+-fa on
+--spec-type draft-mtp
+--spec-draft-n-max 2
+--spec-draft-n-min 0
+--spec-draft-p-min 0.75
+--temp 0.6
+--top-p 0.95
+--top-k 20
+--min-p 0
+--repeat-penalty 1.0
+--host 127.0.0.1 --port 8000
+```
 
-## Why --fit-target 8192,8192
+No `--no-kv-offload` — in llama.cpp, KV offload to GPU is the default.
+`--no-kv-offload` would force KV onto CPU/RAM, which contradicts the target.
 
-The qwen35 architecture is hybrid: 72 of 96 transformer layers use SSM (linear
-attention with recurrent state, no KV cache), and 25 layers use dense attention
-(24 backbone at indices 3,7,11,...,95 plus MTP layer 96). Only dense-attention
-layers consume KV cache.
+## Key parameter semantics
 
-Verified metadata: `head_count_kv=4`, `head_dim=256` (derived from
-`attn_k.weight` shape `5120x1024`). Per-layer F16 KV at 128K context is
-approximately 512 MiB. Total 128K F16 KV is approximately 12.5 GiB
-(~6.25 GiB per GPU). The `--fit-target 8192,8192` reserves 8 GiB per GPU for
-KV plus compute buffer overhead. The previous value `2048,2048` was
-insufficient — it would only support approximately 32K context.
+### --fit-target 2048,2048
+
+`--fit-target` is the **target VRAM margin per GPU after fitting all model
+weights** — not a KV reservation. It tells the fit algorithm: "after placing
+weights, KV, and compute buffers, try to leave about 2 GiB free per GPU."
+
+The 128K F16 KV budget is ~6 GiB/GPU for the main model plus ~0.25 GiB/GPU
+for MTP draft. With ~20 GiB weights per GPU, the allocation is:
+
+```text
+~20.1 GiB weights + ~6.0 GiB KV + ~0.1 GiB RS + ~0.25 GiB MTP ≈ 26.4 GiB
+```
+
+Leaving ~5.6 GiB for CUDA buffers, FA workspace, and the 2 GiB fit-target
+margin. Using a larger fit-target (e.g. 8192) would force the fit algorithm to
+offload more weights to CPU, hurting decode speed.
+
+### --spec-draft-n-max 2 (not 3)
+
+Qwen3.6 has a reported bug where `n-max=3` changes deterministic output
+(llama.cpp issue #23302). The Eleanor author recommends `n-max=2` and reports
+~60% acceptance at 2 tokens. Phase 4 will benchmark n=1/2/3.
+
+### --spec-draft-p-min 0.75
+
+Stops drafting early when the MTP head confidence drops below 0.75. Default
+is 0.0 (never stop early). Setting 0.75 reduces wasted computation on
+low-confidence drafts, which improves throughput for this model.
+
+### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
+
+Eleanor author recommendation for precise coding tasks. `repeat-penalty 1.0`
+disables repetition penalty (MTP works best with it off).
 
 ## VRAM budget (64 GiB total)
 
-Model weights Q8_0 ~40.2 GiB (62.8%), KV cache ~12.5 GiB (19.5%), CUDA runtime
-~1.0 GiB, compute buffer ~1.5 GiB, SSM recurrent state ~0.5 GiB. Total ~55.7
-GiB, leaving ~8.3 GiB (13%) headroom.
+```text
+Q8_0 weights:              ~40.2 GiB  (62.8%)
+Main KV (128K, F16):       ~12.0 GiB  (18.8%)
+MTP draft KV:               ~0.5 GiB  ( 0.8%)
+Recurrent state:             ~0.2 GiB  ( 0.3%)
+CUDA runtime:                ~1.0 GiB  ( 1.6%)
+Compute buffer:              ~1.5 GiB  ( 2.3%)
+─────────────────────────────────────────────
+Total:                      ~55.4 GiB
+Headroom:                    ~8.6 GiB  (13.4%)
+```
 
 ## MTP
 
 The GGUF contains MTP tensors (`nextn_predict_layers: 1`, `blk.96.nextn.*`).
-Enable with `--spec-type draft-mtp --spec-draft-n-max 3`. This fork's llama.cpp
-has native qwen35 MTP/nextn support in `src/models/qwen35.cpp`.
+Enable with `--spec-type draft-mtp`. The `-md` flag is not needed —
+`draft-mtp` uses the MTP heads embedded in the main GGUF. The fork's
+`src/models/qwen35.cpp` has native qwen35 MTP/nextn support.
 
 ## OOM ladder
 
-1. Reduce batch: `-b 512 -ub 128` to `-b 256 -ub 64`
-2. Reduce context: `-c 131072` to `-c 65536`
-3. Only then consider limited CPU offload
+1. Reduce `--fit-target` (2048 → 1536 per GPU)
+2. Reduce `-ub 128` to `-ub 64`
+3. Switch KV to Q8_0 (`-ctk q8_0 -ctv q8_0`) — preserves 128K context
+4. Only then reduce `-c 131072` to `-c 65536`
+
+Do not sacrifice 128K context before trying Q8_0 KV.
 
 ## Do not
 
 Do not use `-ngl all`: it disables auto-fit for this 40 GiB model.
+Do not use `--no-kv-offload`: it forces KV to CPU, opposite of the goal.

@@ -99,7 +99,6 @@ llama-server \
   -sm layer \
   --fit on \
   --fit-target 2048,2048 \
-  --no-kv-offload \
   -ctk f16 \
   -ctv f16 \
   -c 131072 \
@@ -107,16 +106,30 @@ llama-server \
   -b 512 \
   -ub 128 \
   -fa on \
+  --spec-type draft-mtp \
+  --spec-draft-n-max 2 \
+  --spec-draft-n-min 0 \
+  --spec-draft-p-min 0.75 \
+  --temp 0.6 \
+  --top-p 0.95 \
+  --top-k 20 \
+  --min-p 0 \
+  --repeat-penalty 1.0 \
   --host 127.0.0.1 \
   --port 8000
 ```
+
+Do not use `--no-kv-offload` — in llama.cpp, KV offload to GPU is the
+default; `--no-kv-offload` would force KV onto CPU/RAM.
 
 ### OOM Ladder
 
 If 128K context does not fit:
 
-1. Reduce batch: `-b 256 -ub 64`
-2. Reduce context: `-c 65536`
+1. Reduce `--fit-target` (2048 to 1536 per GPU)
+2. Reduce micro-batch: `-ub 64`
+3. Switch KV to Q8_0: `-ctk q8_0 -ctv q8_0` (preserves 128K context)
+4. Reduce context: `-c 65536`
 3. Only then consider limited CPU offload
 
 ## Verification

@@ -22,8 +22,7 @@ exec "$server" \
   -dev CUDA0,CUDA1 \
   -sm layer \
   --fit on \
-  --fit-target 8192,8192 \
-  --no-kv-offload \
+  --fit-target 2048,2048 \
   -ctk f16 \
   -ctv f16 \
   -c 131072 \
@@ -32,9 +31,14 @@ exec "$server" \
   -ub 128 \
   -fa on \
   --spec-type draft-mtp \
-  --spec-draft-n-max 3 \
+  --spec-draft-n-max 2 \
+  --spec-draft-n-min 0 \
+  --spec-draft-p-min 0.75 \
   --temp 0.6 \
   --top-p 0.95 \
+  --top-k 20 \
+  --min-p 0 \
+  --repeat-penalty 1.0 \
   --host 127.0.0.1 \
   --port 8000 \
   "$@"
