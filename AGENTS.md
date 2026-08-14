@@ -2,8 +2,8 @@
 
 ## Source Of Truth
 
-1. Active deployment contract under
-   `.scopes/qwen36-40b-eleanor-llamacpp/`.
+1. Archived deployment contract under
+   `.scopes/archive/qwen36-40b-eleanor-llamacpp/`.
 2. Archived vLLM/MXFP8 deployment scope under
    `.scopes/archive/qwen3.6-40b-eleanor-deployment/` (historical only).
 3. Durable incident and operational knowledge under `.wiki/`.
@@ -19,6 +19,10 @@ command rather than its successful output.
 
 Deploy `Qwen3.6-40B-Eleanor` on two RTX 5090 GPUs using llama.cpp with a
 pre-built Q8_0 GGUF, 128K context, and MTP enabled.
+
+**Deployment complete** — all 4 phases finished and archived under
+`.scopes/archive/qwen36-40b-eleanor-llamacpp/`. Production default: n=2,
+p_min=0 (2.12x speedup, 82.9% acceptance).
 
 The Q8_0 GGUF artifact is the sole deployment model, immutable at:
 

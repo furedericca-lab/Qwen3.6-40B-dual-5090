@@ -49,6 +49,13 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Verification: llama-server --list-devices, /health, /v1/models, nvidia-smi, free -h, ss -tlnp, dmesg
 - Residual risk: None — Phase 2+3 fully verified, server stable
 
+## 2026-08-14T21:00:00Z [qwen36-40b-eleanor-llamacpp]
+
+- Summary: Scope archived. All 4 phases complete, all exit criteria met. Deployment scope moved from .scopes/qwen36-40b-eleanor-llamacpp/ to .scopes/archive/qwen36-40b-eleanor-llamacpp/. Updated AGENTS.md and README.md to reflect archived status and deployment completion. Updated wiki references to point to archive path.
+- Pages: reference/qwen35-kv-cache-budget.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: grep -rn '.scopes/qwen36-40b-eleanor-llamacpp' outside archive returns no matches
+- Residual risk: None — deployment fully complete and verified
+
 ## 2026-08-14T20:00:00Z [qwen36-40b-eleanor-llamacpp]
 
 - Summary: Phase 4 MTP comparison complete. Tested 5 configurations (MTP-off + 4 MTP variants). Production default updated to n=2, p_min=0 (2.12x speedup, 82.9% acceptance). Launcher script updated to support MTP_N_MAX and MTP_P_MIN env vars for easy reconfiguration. Evidence saved to evidence/mtp-comparison/. All scope docs, AGENTS.md, README.md, and wiki pages updated to reflect production defaults and Phase 4 results.

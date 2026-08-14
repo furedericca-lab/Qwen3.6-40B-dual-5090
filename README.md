@@ -3,6 +3,10 @@
 This repository deploys the Qwen3.6-40B-Eleanor model on dual RTX 5090 GPUs
 using llama.cpp with a pre-built Q8_0 GGUF, 128K context, and MTP enabled.
 
+**Deployment complete** — all 4 phases finished. Production config: n=2,
+p_min=0, 2.12x MTP speedup. The deployment scope is archived under
+`.scopes/archive/qwen36-40b-eleanor-llamacpp/`.
+
 The previous vLLM/MXFP8 deployment route is archived under
 `.scopes/archive/qwen3.6-40b-eleanor-deployment/`. It is a historical record
 only.
@@ -162,7 +166,7 @@ free -h
 
 ## Project Sources
 
-- Active deployment scope: `.scopes/qwen36-40b-eleanor-llamacpp/`
+- Archived deployment scope: `.scopes/archive/qwen36-40b-eleanor-llamacpp/`
 - Archived vLLM/MXFP8 scope: `.scopes/archive/qwen3.6-40b-eleanor-deployment/`
 - Durable project knowledge: `.wiki/`
 - Operator and safety rules: `AGENTS.md`

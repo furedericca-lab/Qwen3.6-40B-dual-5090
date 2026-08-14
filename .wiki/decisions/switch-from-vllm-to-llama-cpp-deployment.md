@@ -6,7 +6,7 @@ scope: qwen36-40b-eleanor-llamacpp
 related_scopes: []
 related_files: []
 source_docs:
-  - .scopes/qwen36-40b-eleanor-llamacpp/qwen36-40b-eleanor-llamacpp-contracts.md
+  - .scopes/archive/qwen36-40b-eleanor-llamacpp/qwen36-40b-eleanor-llamacpp-contracts.md
 tags:
   - deployment
   - llama-cpp

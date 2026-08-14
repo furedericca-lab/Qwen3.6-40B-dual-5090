@@ -7,7 +7,7 @@ related_scopes: []
 related_files:
   - scripts/llama-server-first-boot.sh
 source_docs:
-  - .scopes/qwen36-40b-eleanor-llamacpp/qwen36-40b-eleanor-llamacpp-contracts.md
+  - .scopes/archive/qwen36-40b-eleanor-llamacpp/qwen36-40b-eleanor-llamacpp-contracts.md
 tags:
   - kv-cache
   - vram
