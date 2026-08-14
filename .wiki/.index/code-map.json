@@ -1,0 +1,34 @@
+{
+  "AGENTS.md": {
+    "anchors": [],
+    "definition_pages": [],
+    "pages": [
+      ".wiki/debugging/buffered-upstream-verifier-bad-page.md"
+    ],
+    "symbols": {}
+  },
+  "scripts/run-buffered-io-probe.sh": {
+    "anchors": [],
+    "definition_pages": [],
+    "pages": [
+      ".wiki/debugging/buffered-upstream-verifier-bad-page.md"
+    ],
+    "symbols": {}
+  },
+  "scripts/verify-source-upstream-buffered-incident.py": {
+    "anchors": [],
+    "definition_pages": [],
+    "pages": [
+      ".wiki/debugging/buffered-upstream-verifier-bad-page.md"
+    ],
+    "symbols": {}
+  },
+  "scripts/verify-source-upstream-direct.py": {
+    "anchors": [],
+    "definition_pages": [],
+    "pages": [
+      ".wiki/debugging/buffered-upstream-verifier-bad-page.md"
+    ],
+    "symbols": {}
+  }
+}

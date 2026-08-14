@@ -1,0 +1,16 @@
+# Local runtime state
+.venv/
+.quantize-venv/
+.cache/
+logs/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Model payloads and generated artifacts
+models/
+*.safetensors
+*.gguf
+*.partial
+artifacts/
+tmp/
