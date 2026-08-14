@@ -153,9 +153,15 @@ keeping all KV on GPU.
 
 ## Build Contract
 
-The `llama.cpp` submodule (fork `furedericca-lab/llama.cpp`, commit `efb81ab`)
-is the sole runtime binary source. It has native `qwen35` architecture support
+The `llama.cpp` submodule (fork `furedericca-lab/llama.cpp`, merge commit
+`94e82e8ae` = fork `efb81ab` + upstream/master `885c5bb`) is the sole runtime
+binary source. It has native `qwen35` architecture support
 (`src/models/qwen35.cpp`) including MTP/nextn layers and hybrid SSM+attention.
+The merge incorporates 42 upstream commits (speculative/MTP improvements,
+server updates, build fixes) while preserving all DIO and DeepSeek V4
+quantization patches from the fork.
+
+The sync branch `sync-upstream-20260814` in the submodule contains the merge.
 
 Build requirements:
 

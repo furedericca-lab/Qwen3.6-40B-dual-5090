@@ -9,7 +9,7 @@
 3. Durable incident and operational knowledge under `.wiki/`.
 4. `README.md` for operator entry points.
 5. `scripts/llama-server-first-boot.sh` for the canonical runtime launcher.
-6. Pinned `llama.cpp` submodule at fork commit `efb81ab`.
+6. `llama.cpp` submodule at merge commit `94e82e8ae` (fork `efb81ab` + upstream `885c5bb`).
 
 The scope is authoritative for phase gates and recorded evidence. Do not mark a
 phase complete, start a later phase, or rewrite a checkpoint based on a planned
@@ -65,8 +65,11 @@ cmake --build build --target llama-server -j$(nproc)
 The built binary is `llama.cpp/build/bin/llama-server`. It is not tracked by
 Git; rebuild after any submodule update.
 
-The pinned fork (`furedericca-lab/llama.cpp` at `efb81ab`) has native `qwen35`
-architecture support including MTP/nextn and hybrid SSM+attention. Do not add
+The llama.cpp submodule (`furedericca-lab/llama.cpp`, merge commit `94e82e8ae` =
+fork `efb81ab` + upstream `885c5bb`) has native `qwen35`
+architecture support including MTP/nextn and hybrid SSM+attention. The merge
+incorporates 42 upstream commits (speculative/MTP improvements, server updates)
+while preserving DIO and DeepSeek V4 quantization patches. Do not add
 `--trust-remote-code` or alternative model loaders.
 
 This project does not require a Python virtual environment for serving. If

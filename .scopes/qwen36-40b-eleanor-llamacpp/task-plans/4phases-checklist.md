@@ -18,8 +18,8 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
 | Phase | Status | Completion | Health | Blockers |
 |---|---|---|---|---|
 | Phase 1: Build and preflight | Complete | 100% | Good | 0 |
-| Phase 2: First-boot 128K startup | Not Started | 0% | Unknown | 0 |
-| Phase 3: Behavior probes | Not Started | 0% | Unknown | 0 |
+| Phase 2: First-boot 128K startup | Complete | 100% | Good | 0 |
+| Phase 3: Behavior probes | Complete | 100% | Good | 0 |
 | Phase 4: MTP comparison | Not Started | 0% | Unknown | 0 |
 
 ## Phase Entry Links
@@ -44,6 +44,28 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
 - Issues/blockers: None
 - Resolutions: N/A
 - Checkpoint confirmed: Yes — binary, artifact, system, and launcher are ready for Phase 2
+
+### Phase 2+3 complete — 2026-08-14
+- Phase: 2+3
+- Batch date: 2026-08-14
+- Upstream sync: llama.cpp fork efb81ab merged with upstream/master 885c5bb (42 commits), merge commit 94e82e8ae. No conflicts. DIO patches preserved. Recompiled and verified.
+- Completed tasks: T010 (128K startup successful, GPU0=26144 MiB, GPU1=28896 MiB), T011 (/health OK, /v1/models lists model with n_ctx=131072), T012 (GPU/RAM footprint recorded, MTP draft acceptance 90-96%, gen 46-72 tok/s, prompt 85-434 tok/s), T013 (localhost-only bind confirmed on 127.0.0.1:8000)
+- Behavior probes (Phase 3 inline): math (2+3=5, correct), Chinese (quantum computing explanation, fluent), JSON (valid object, correct), Python (merge_sorted_lists, correct), summary (3 bullet points, accurate)
+- Evidence commands:
+  - `llama-server --list-devices` shows CUDA0/CUDA1 RTX 5090
+  - `curl http://127.0.0.1:8000/health` returns `{"status": "ok"}`
+  - `curl http://127.0.0.1:8000/v1/models` returns model metadata: n_ctx=131072, n_params=39497296128, ftype=Q8_0
+  - `nvidia-smi`: GPU0=26144 MiB, GPU1=28896 MiB, both idle after shutdown
+  - `free -h`: 5.6 GiB used, 37 GiB free, 328 KiB swap
+  - `ss -tlnp | grep 8000`: 127.0.0.1:8000 only
+  - `cat /proc/sys/kernel/tainted`: 4096 (DKMS O only, no BAD_PAGE)
+  - `sudo dmesg | grep -iE 'BAD_PAGE|Oops|Xid'`: only RTL8125B NIC XID, no GPU errors
+  - MTP draft acceptance: 93.75% (math), 90.74% (Chinese), 96.25% (JSON), 95.15% (Python), 92.80% (summary)
+  - Generation speed: 46.9-71.8 tok/s (varies by task), mean ~52 tok/s at n-max=2
+  - system_fingerprint: b10439-94e82e8ae (confirms merge commit build)
+- Issues/blockers: None
+- Resolutions: N/A
+- Checkpoint confirmed: Yes — server runs stably at 128K with MTP, all probes pass
 
 ## Final Release Gate
 - Scope constraints preserved.

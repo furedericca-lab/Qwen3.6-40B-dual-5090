@@ -42,6 +42,13 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Verification: bash -n scripts/llama-server-first-boot.sh; rg --spec-type none across scope docs
 - Residual risk: None — MTP_MODE is a simple conditional, no runtime dependency.
 
+## 2026-08-14T18:00:00Z [qwen36-40b-eleanor-llamacpp]
+
+- Summary: Upstream sync and Phase 2+3 completion. Merged llama.cpp fork (efb81ab) with official upstream/master (885c5bb, +42 commits) into sync branch sync-upstream-20260814. Merge commit 94e82e8ae, no conflicts, all DIO patches preserved. Recompiled with CUDA sm_120a. First-boot 128K startup successful: GPU0=26144 MiB, GPU1=28896 MiB, total ~55 GiB. MTP draft acceptance 90-96% across 5 probes (math, Chinese, JSON, Python, summary). Generation speed 46.9-71.8 tok/s. Prompt speed 84.9-434.1 tok/s. All API health checks pass, localhost-only bind confirmed, kernel taint 4096 (normal), no BAD_PAGE/Oops/Xid. Updated submodule pin to merge commit 94e82e8ae.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md
+- Verification: llama-server --list-devices, /health, /v1/models, nvidia-smi, free -h, ss -tlnp, dmesg
+- Residual risk: None — Phase 2+3 fully verified, server stable
+
 ## 2026-08-14T14:00:00Z [qwen36-40b-eleanor-llamacpp]
 
 - Summary: Updated MTP parameter characterization from "n-max=3 has a bug" to "n-max=2 is the conservative baseline". The original Qwen3.6 output drift bug (llama.cpp #23302) was closed after testing showed Q8_0 is unaffected at n=1-5. Phase 4 now plans a 4-configuration test matrix: n=2/3 × p_min=0/0.75. Also clarified that sampling params (top_k=20, min_p=0, repeat_penalty=1.0) are Qwen3.6 official coding parameters, not DavidAU's general-purpose profile (which uses top_k=40, min_p=0.05, repeat_penalty=1.02-1.15 for creative/RP use). Decided not to update llama.cpp submodule before Phase 2 first boot — fork is already at its own remote HEAD; upstream sync will be done on a separate branch after baseline is established.

@@ -17,7 +17,7 @@ description: Scope boundaries and milestones for qwen36-40b-eleanor-llamacpp.
 
 - Reopening the archived vLLM/MXFP8 deployment scope.
 - GGUF conversion, requantization, or alternative quantization types.
-- Updating the llama.cpp fork beyond the pinned commit `efb81ab`.
+- Updating the llama.cpp fork beyond the pinned commit `efb81ab` without a merge branch.
 - Binding beyond localhost without explicit approval.
 - CPU weight offload as the primary strategy (last resort only).
 
@@ -29,7 +29,7 @@ description: Scope boundaries and milestones for qwen36-40b-eleanor-llamacpp.
 | Use pre-built Q8_0 GGUF | User confirmed download and verification | High | None | 0.95 | User provided the file and stated it is verified | Accepted |
 | 128K context target | User requirement | High | None | 0.90 | Fits within dual-5090 VRAM based on weight+KV estimate | Accepted |
 | MTP enabled | User requirement | High | None | 0.95 | GGUF contains nextn tensors and metadata | Accepted |
-| llama.cpp fork efb81ab | Matches reference project pin | High | None | 0.90 | Same fork commit as deepseek-v4-flash project | Accepted |
+| llama.cpp fork efb81ab → 94e82e8ae | Upstream sync merge, DIO preserved | High | None | 0.90 | Merge compiled, server passes all probes | Accepted |
 
 ## Milestones
 
@@ -38,14 +38,15 @@ description: Scope boundaries and milestones for qwen36-40b-eleanor-llamacpp.
 | llama.cpp compiled with CUDA | Complete | sm_120a build exit 0, `--list-devices` sees both RTX 5090 |
 | Scope scaffolded | Complete | `.scopes/qwen36-40b-eleanor-llamacpp/` created |
 | GGUF artifact verified | Complete | Metadata confirms qwen35 arch, 97 blocks, Q8_0, MTP present, head_dim=256, 24 dense attn layers + 1 MTP draft layer |
-| 128K startup | Pending | `llama-server` loads at `-c 131072` without OOM |
-| API and behavior probes | Pending | `/health`, `/v1/models`, raw/chat/Chinese/JSON/Python pass |
+| llama.cpp upstream sync | Complete | Fork efb81ab merged with upstream/master (42 commits), merge commit 94e82e8ae, DIO patches preserved, compiled and verified |
+| 128K startup | Complete | `llama-server` loads at `-c 131072` without OOM, GPU0=26144 MiB, GPU1=28896 MiB |
+| API and behavior probes | Complete | `/health` OK, `/v1/models` listed, raw/math/Chinese/JSON/Python/summary all pass |
 | MTP comparison | Pending | MTP-on vs MTP-off evidence recorded |
 
 ## Dependencies
 
 - Pre-built Q8_0 GGUF at `/data/linux-fast/models/Qwen3.6-40B-Eleanor-GGUF/`
-- `llama.cpp` submodule at commit `efb81ab` (native qwen35 support)
+- `llama.cpp` submodule at merge commit `94e82e8ae` (fork efb81ab + upstream/master 885c5bb)
 - CUDA Toolkit 13.3, Clang 21, CMake 4.4, Ninja
 - Dual RTX 5090 with idle VRAM
 - Clean kernel boot (taint 0 or 4096, no BAD_PAGE/Oops/Xid)

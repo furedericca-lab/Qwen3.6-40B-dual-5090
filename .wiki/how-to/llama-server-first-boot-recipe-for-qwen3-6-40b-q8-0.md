@@ -11,7 +11,7 @@ tags:
   - launch
   - llama-server
 last_checked: 2026-08-14
-updated: 2026-08-14T10:00:00Z
+updated: 2026-08-14T18:00:00Z
 ---
 
 # llama-server first-boot recipe for Qwen3.6-40B Q8_0
@@ -135,6 +135,24 @@ spec-type none.
 4. Only then reduce `-c 131072` to `-c 65536`
 
 Do not sacrifice 128K context before trying Q8_0 KV.
+
+## First-boot results (2026-08-14)
+
+128K startup with MTP on (n-max=2, p-min=0.75) on upstream-synced build:
+
+```text
+GPU0: 26144 MiB used (of 32607 MiB)
+GPU1: 28896 MiB used (of 32607 MiB)
+Total: ~55.0 GiB (matches budget estimate of ~55.4 GiB)
+System RAM: 5.6 GiB used, 37 GiB free
+
+MTP draft acceptance: 90-96% across 5 probes
+Generation speed: 46.9-71.8 tok/s (varies by task)
+Prompt speed: 84.9-434.1 tok/s
+system_fingerprint: b10439-94e82e8ae
+```
+
+No OOM, no kernel errors, no NVIDIA Xid. All API health checks pass.
 
 ## Do not
 

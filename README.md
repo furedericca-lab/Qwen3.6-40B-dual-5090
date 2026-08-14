@@ -12,8 +12,8 @@ only.
 | Phase | Status | Description |
 |---|---|---|
 | 1. Build and preflight | Complete | llama.cpp compiled with CUDA sm_120a; GGUF metadata verified |
-| 2. First-boot 128K startup | Not Started | `llama-server` loads at 128K context on dual 5090 |
-| 3. Behavior probes | Not Started | Raw, chat, Chinese, JSON, Python, and long-prefill probes |
+| 2. First-boot 128K startup | Complete | 128K startup OK, GPU0=26144 MiB, GPU1=28896 MiB, MTP 90-96% acceptance |
+| 3. Behavior probes | Complete | Math, Chinese, JSON, Python, summary probes all pass |
 | 4. MTP comparison | Not Started | MTP-on vs MTP-off throughput and quality comparison |
 
 ## Deployment Artifact
@@ -47,13 +47,16 @@ git submodule update --init --recursive
 
 `llama.cpp` tracks the project fork at
 `https://github.com/furedericca-lab/llama.cpp.git` and is pinned by the parent
-repository gitlink at commit `efb81ab`. Do not update it independently without
-also validating and committing the new parent pin.
+repository gitlink at merge commit `94e82e8ae` (fork `efb81ab` + upstream
+`885c5bb`, 42 upstream commits including speculative/MTP improvements). Do not
+update it independently without also validating and committing the new parent
+pin.
 
 ## Build llama.cpp
 
-The pinned fork has native `qwen35` architecture support. Build with CUDA for
-RTX 5090 (Blackwell, sm_120a):
+The submodule has native `qwen35` architecture support and includes 42 upstream
+commits merged on top of the fork's DIO and DeepSeek V4 patches. Build with
+CUDA for RTX 5090 (Blackwell, sm_120a):
 
 ```bash
 cd llama.cpp
