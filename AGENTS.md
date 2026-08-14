@@ -103,9 +103,11 @@ per-device allocation for a 40 GiB model. Use `--fit on` instead. Do not use
 The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`).
 Runtime MTP is explicitly enabled with `--spec-type draft-mtp`;
 the llama.cpp default speculative decoding type is `none`.
-`n-max=2` is used because `n-max=3` has a reported Qwen3.6 output drift bug
-(llama.cpp issue #23302). Phase 4 compares MTP-on vs MTP-off and benchmarks
-n=1/2/3.
+`n-max=2` is the Phase 2 baseline; Phase 4 compares MTP-on vs MTP-off
+and benchmarks n=2/3 with p_min=0/0.75 (four test configurations). The
+n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was closed after
+testing showed Q8_0 is unaffected at n=1-5; n-max=2 remains the conservative
+first-boot choice.
 
 OOM ladder: reduce `--fit-target` first, then `-ub`, then switch KV to Q8_0
 (`-ctk q8_0 -ctv q8_0`, preserves 128K context), and only then reduce `-c`

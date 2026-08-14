@@ -66,22 +66,28 @@ Leaving ~5.6 GiB for CUDA buffers, FA workspace, and the 2 GiB fit-target
 margin. Using a larger fit-target (e.g. 8192) would force the fit algorithm to
 offload more weights to CPU, hurting decode speed.
 
-### --spec-draft-n-max 2 (not 3)
+### --spec-draft-n-max 2 (baseline, not final)
 
-Qwen3.6 has a reported bug where `n-max=3` changes deterministic output
-(llama.cpp issue #23302). The Eleanor author recommends `n-max=2` and reports
-~60% acceptance at 2 tokens. Phase 4 will benchmark n=1/2/3.
+Qwen3.6 had a reported bug where `n-max=3` changed deterministic output
+(llama.cpp issue #23302), but the issue was closed after testing showed
+Q8_0 is unaffected at n=1-5. `n-max=2` remains the conservative first-boot
+baseline. Phase 4 will benchmark four configurations: n=2/3 × p_min=0/0.75.
+The Eleanor author recommends `n-max=2` and reports ~60% acceptance at
+2 tokens.
 
-### --spec-draft-p-min 0.75
+### --spec-draft-p-min 0.75 (baseline)
 
 Stops drafting early when the MTP head confidence drops below 0.75. Default
 is 0.0 (never stop early). Setting 0.75 reduces wasted computation on
-low-confidence drafts, which improves throughput for this model.
+low-confidence drafts. This is a baseline value — Phase 4 will compare
+p_min=0 vs p_min=0.75 at both n=2 and n=3 to find the optimal combination.
 
 ### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
 
-Eleanor author recommendation for precise coding tasks. `repeat-penalty 1.0`
-disables repetition penalty (MTP works best with it off).
+Qwen3.6 official precise coding parameters. `repeat-penalty 1.0` disables
+repetition penalty (MTP works best with it off). For creative/RP use, a
+separate profile (top_k=40, min_p=0.05, repeat_penalty=1.02-1.15) can be
+configured later.
 
 ## VRAM budget (64 GiB total)
 

@@ -37,14 +37,22 @@ Tasks:
     no empty output.
   - Evidence: Side-by-side comparison table recorded.
 
-- [ ] T033 [QA] Compare throughput
-  - DoD: Record decode tok/s for both configurations. Document any MTP
-    acceleration benefit.
-  - Evidence: Timing comparison table recorded.
+- [ ] T033 [QA] Compare throughput across MTP configurations
+  - DoD: Run four MTP configurations and record decode tok/s for each:
+    A. n-max=2, p-min=0 (current baseline without p-min gating)
+    B. n-max=2, p-min=0.75 (current baseline with p-min gating)
+    C. n-max=3, p-min=0 (higher draft count, no gating)
+    D. n-max=3, p-min=0.75 (higher draft count, with gating)
+    The n-max=3 Qwen3.6 drift bug (#23302) was closed; Q8_0 is unaffected at
+    n=1-5, so n=3 is safe to test. Record draft acceptance rate and mean
+    draft length for each configuration. Compare against MTP-off baseline.
+  - Evidence: Timing and acceptance comparison table recorded.
 
 - [ ] T034 [Docs] Finalize deployment documentation
   - DoD: README.md, AGENTS.md, scope docs, and launcher all agree on the
     final deployment configuration (128K, MTP status, dual-5090 flags).
+    The optimal n-max and p-min values from T033 are recorded as the
+    production configuration.
   - Evidence: `ok-skill repo-task-driven check --scope qwen36-40b-eleanor-llamacpp` passes.
 
 Checkpoint: Deployment is complete with MTP benefit quantified and documented.

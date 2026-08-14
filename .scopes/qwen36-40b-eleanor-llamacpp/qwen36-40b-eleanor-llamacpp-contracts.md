@@ -219,8 +219,12 @@ journalctl -k -b --no-pager | grep -iE 'BAD_PAGE|Oops|general protection|Xid'
 - The archived vLLM scope is historical only; it does not constrain this scope.
 - The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`). Runtime
   MTP is explicitly enabled with `--spec-type draft-mtp`; the llama.cpp default
-  speculative decoding type is `none`. Disabling MTP for Phase 4 comparison
-  uses `MTP_MODE=off` in the launcher, which omits all speculative args entirely.
+  speculative decoding type is `none`. `n-max=2` is the Phase 2 baseline — the
+  original n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was closed after
+  testing showed Q8_0 is unaffected at n=1-5, but n-max=2 remains the
+  conservative first-boot choice. Phase 4 will benchmark four configurations:
+  n=2/3 × p_min=0/0.75. Disabling MTP for Phase 4 comparison uses
+  `MTP_MODE=off` in the launcher, which omits all speculative args entirely.
   Do NOT use `--spec-type none` via `$@` to disable MTP — llama.cpp appends
   spec types into a bitmask, so passing both `draft-mtp` and `none` still
   enables MTP.

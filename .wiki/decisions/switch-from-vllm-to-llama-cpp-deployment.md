@@ -49,21 +49,25 @@ In llama.cpp, KV offload to GPU is the **default** — `--no-kv-offload`
 **disables** GPU KV and forces KV to CPU/RAM. Since the target is all-KV-on-GPU,
 this flag was removed. The default behavior (KV on GPU) is what we want.
 
-### --spec-type draft-mtp --spec-draft-n-max 2 (not 3)
+### --spec-type draft-mtp --spec-draft-n-max 2 (baseline, not final)
 
-`n-max=3` has a reported bug where it changes deterministic output on Qwen3.6
-(llama.cpp issue #23302). The Eleanor author recommends `n-max=2` with ~60%
-acceptance. Starting at `n-max=2` is the safe baseline; Phase 4 will benchmark
-n=1/2/3.
+`n-max=2` is the Phase 2 baseline. The original n-max=3 Qwen3.6 output drift
+bug (llama.cpp #23302) was closed after further testing showed Q8_0 is
+unaffected at n=1-5; however, n-max=2 remains the conservative first-boot
+choice. Phase 4 will benchmark four configurations: n=2/3 × p_min=0/0.75.
+The Eleanor author recommends n-max=2 with ~60% acceptance at 2 tokens.
 
 Additional MTP flags: `--spec-draft-n-min 0` (draft can be as short as 0
 tokens), `--spec-draft-p-min 0.75` (stop drafting when MTP head confidence
 drops below 0.75, reducing wasted computation on low-confidence drafts).
+p_min=0.75 is also a baseline value — Phase 4 will test it against p_min=0.
 
 ### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
 
-Eleanor author recommendation for precise coding tasks. `repeat-penalty 1.0`
-disables repetition penalty, which is recommended when using MTP.
+Qwen3.6 official precise coding parameters. `repeat-penalty 1.0` disables
+repetition penalty, which is recommended when using MTP. For creative/RP use,
+a separate DavidAU profile (top_k=40, min_p=0.05, repeat_penalty=1.02-1.15)
+can be configured later.
 
 ### OOM ladder: preserve 128K context
 
