@@ -16,7 +16,7 @@ if [[ ! -f "$model" ]]; then
   exit 1
 fi
 
-# Profile selection: agent (default), balanced, creative, long
+# Profile selection: agent (default), general, long
 PROFILE="${PROFILE:-agent}"
 
 # Common baseline (immutable hardware/runtime params)
@@ -26,7 +26,7 @@ common_args=(
   -dev CUDA0,CUDA1
   -sm layer
   --fit on
-  --fit-target 2048,2048
+  --fit-target 2048,4096
   -ctk f16 -ctv f16
   -c 131072
   -np 1
@@ -44,7 +44,7 @@ context_args=()
 
 case "$PROFILE" in
   agent)
-    # Primary profile: MTP n=3/p=0, coding sampling
+    # Primary profile: MTP n=3/p=0, reasoning-preserve, coding/agent sampling
     # Validated: 73.76 tok/s decode, 2042 tok/s prefill at 66K, J/token=8.46
     MTP_N_MAX=${MTP_N_MAX:-3}
     MTP_P_MIN=${MTP_P_MIN:-0}
@@ -61,10 +61,15 @@ case "$PROFILE" in
       --min-p 0
       --repeat-penalty 1.0
     )
+    reasoning_args=(
+      --reasoning auto
+      --reasoning-format deepseek
+      --reasoning-preserve
+    )
     ;;
-  balanced)
-    # Fallback profile: MTP n=2/p=0, slightly higher temperature
-    MTP_N_MAX=${MTP_N_MAX:-2}
+  general)
+    # General profile: MTP n=3/p=0, chat/analysis sampling
+    MTP_N_MAX=${MTP_N_MAX:-3}
     MTP_P_MIN=${MTP_P_MIN:-0}
     spec_args=(
       --spec-type draft-mtp
@@ -79,21 +84,15 @@ case "$PROFILE" in
       --min-p 0
       --repeat-penalty 1.0
     )
-    ;;
-  creative)
-    # Creative profile: MTP off, high temperature
-    # DavidAU: MTP off for temp>1
-    sampling_args=(
-      --temp 1.0
-      --top-p 0.95
-      --top-k 40
-      --min-p 0.05
-      --repeat-penalty 1.0
+    reasoning_args=(
+      --reasoning auto
+      --reasoning-format deepseek
+      --reasoning-preserve
     )
     ;;
   long)
     # Long-context profile: 256K context with Q8_0 KV
-    # Experimental — not yet validated
+    # Retrieval validated up to ~172K tokens; decode -52% vs 128K at short prompts
     context_args=(
       -c 262144
       -ctk q8_0
@@ -114,9 +113,10 @@ case "$PROFILE" in
       --min-p 0
       --repeat-penalty 1.0
     )
+    reasoning_args=()
     ;;
   *)
-    echo "PROFILE must be agent, balanced, creative, or long, got: $PROFILE" >&2
+    echo "PROFILE must be agent, general, or long, got: $PROFILE" >&2
     exit 2
     ;;
 esac
@@ -132,4 +132,5 @@ exec "$server" \
   "${context_args[@]}" \
   "${spec_args[@]}" \
   "${sampling_args[@]}" \
+  "${reasoning_args[@]}" \
   "$@"

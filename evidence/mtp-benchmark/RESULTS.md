@@ -25,6 +25,18 @@ llama.cpp merge commit 94e82e8ae. Server restarted between each configuration.
 | n=3, p=0    | 81.35 | 81.24 | 0.29 | 81.19 | 81.95 | 2.34x |
 | n=3, p=0.75 | 66.61 | 66.52 | 0.71 | 65.91 | 67.43 | 1.92x |
 
+### Profile optimization benchmarks (temp=0.6 and temp=0.7)
+
+| Config | Temp | Mean | StdDev | Speedup | J/token | Accept Rate |
+|--------|------|-----:|-------:|--------:|--------:|------------:|
+| MTP-off | 0 | 34.77 | 0.003 | 1.00x | 17.12 | N/A |
+| n=2, p=0 | 0.6 | 68.30 | 0.055 | 1.96x | 8.75 | 72.2% |
+| n=3, p=0 | 0.6 | 73.76 | 0.015 | 2.12x | 8.46 | 60.7% |
+| n=3, p=0 | 0 | 81.67 | 0.043 | 2.35x | 7.58 | 70.7% |
+| n=4, p=0 | 0.6 | 73.62 | 0.042 | 2.12x | 8.30 | 51.7% |
+| n=2, p=0 | 0.7 | 69.10 | 0.029 | 1.98x | 9.08 | 74.2% |
+| n=3, p=0 | 0.7 | 75.02 | 0.059 | 2.16x | 8.36 | 63.2% |
+
 ## Draft Acceptance (per run)
 
 | Config       | draft_n | accepted | Accept Rate |
@@ -77,20 +89,12 @@ low-confidence tokens, shortening the average verified-tokens-per-step.
 
 ### Production recommendation
 
-**Maximum throughput: n=3, p=0** (81.35 tok/s, 2.34x speedup)
-- Best for batch processing and non-interactive use where raw speed matters
-- Acceptable power and VRAM overhead
-- 70.7% acceptance means some wasted compute but net throughput still highest
+**All profiles use n=3, p=0** — confirmed at both temp=0.6 (8.0% faster
+than n=2) and temp=0.7 (8.6% faster than n=2). n=3 is also more
+energy-efficient at both temperatures.
 
-**Balanced production: n=2, p=0** (71.20 tok/s, 2.05x speedup)
-- 12.5% slower than n=3/p=0 but with better acceptance (77.6%)
-- Lower power (610W vs 643W)
-- Extremely stable (stddev 0.03)
-- Best for interactive use where predictable per-token latency matters
-
-Both are valid production configurations. The default launcher uses n=2/p=0
-as the balanced default. Operators can switch to n=3/p=0 via environment
-variables for batch or throughput-oriented workloads.
+Three profiles: agent (temp=0.6), general (temp=0.7), long (256K Q8_0 KV).
+Creative work uses per-request sampler overrides, not a separate profile.
 
 ## Comparison with Quick Probe Results
 

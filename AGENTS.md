@@ -24,9 +24,10 @@ pre-built Q8_0 GGUF, 128K context, and MTP enabled.
 `.scopes/archive/qwen36-40b-eleanor-llamacpp/`.
 
 **Profile optimization in progress** — scope at
-`.scopes/qwen36-40b-profile-optimization/`. Agent profile default updated
-to n=3/p=0 (73.76 tok/s at temp=0.6, 2.12x speedup, 8.46 J/token). Ubatch
-increased from 128 to 256 (+20-34% prefill, zero decode penalty).
+`.scopes/qwen36-40b-profile-optimization/`. Three profiles: agent (default,
+n=3/p=0, temp=0.6, 73.76 tok/s), general (n=3/p=0, temp=0.7, 75.02 tok/s),
+long (256K Q8_0 KV, experimental). Ubatch 256 (+20-34% prefill, zero decode
+penalty). All MTP tuning frozen: n=3/p=0 optimal at all tested temperatures.
 
 The Q8_0 GGUF artifact is the sole deployment model, immutable at:
 
@@ -97,13 +98,14 @@ Serve using `scripts/llama-server-first-boot.sh`, which calls the locally built
 
 | Profile | MTP | Sampling | Use Case |
 |---|---|---|---|
-| agent (default) | n=3, p=0 | temp=0.6, top_p=0.95, top_k=20 | Hermes/Codex agents, coding |
-| balanced | n=2, p=0 | temp=0.7, top_p=0.95, top_k=20 | General interaction |
-| creative | MTP off | temp=1.0, top_k=40, min_p=0.05 | Creative, divergent |
+| agent (default) | n=3, p=0 | temp=0.6, top_p=0.95, top_k=20 | Agent/Coding, production default |
+| general | n=3, p=0 | temp=0.7, top_p=0.95, top_k=20 | Chat, analysis, general interaction |
 | long | n=3, p=0 | temp=0.6 | 256K Q8_0 KV (experimental) |
 
-Server sampling parameters are fallback defaults only. API callers should pass
-their own sampler overrides per request.
+All three profiles share n=3/p=0 MTP. The only differences are sampling
+fallbacks and, for the long profile, context/KV type. Creative work does not
+get a separate profile — use per-request sampler overrides (e.g. temp=1.0,
+top_k=40, min_p=0.05). If temp>1, disable MTP via `MTP_MODE=off`.
 
 ### Agent Profile (Default)
 
@@ -111,7 +113,7 @@ their own sampler overrides per request.
 --load-mode dio
 -dev CUDA0,CUDA1
 -sm layer
---fit on --fit-target 2048,2048
+--fit on --fit-target 2048,4096
 -ctk f16 -ctv f16
 -c 131072 -np 1
 -b 1024 -ub 256
@@ -124,15 +126,32 @@ their own sampler overrides per request.
 Validated at temp=0.6: 73.76 tok/s decode (stddev 0.015), 2042 tok/s prefill
 at 66K, 8.46 J/token, 60.7% MTP acceptance.
 
+General profile at temp=0.7: 75.02 tok/s decode (stddev 0.059), 8.36 J/token,
+63.2% MTP acceptance. n=3 confirmed 8.6% faster than n=2 at temp=0.7
+(75.02 vs 69.10 tok/s), exceeding the 5% threshold.
+
+Reasoning-preserve (`--reasoning auto --reasoning-format deepseek
+--reasoning-preserve`) is enabled for agent and general profiles. It reduces
+prompt tokens by 2.4% and wall time by 6.8% with no decode regression.
+
+Cache-reuse (`--cache-reuse 256`) is unsupported — the Qwen3.5 hybrid
+architecture does not support it in current llama.cpp.
+
+Fit-target changed from 2048,2048 to 2048,4096: at 2048,2048, GPU1 had only
+2,799 MiB free (bottleneck). At 2048,4096, both GPUs have ~4-4.5 GiB free,
+and min(free) increases by 44%. Decode regression is <0.2%.
+
 Ubatch was increased from 128 to 256 based on benchmarking: +20-34% prefill
 speed with zero decode regression and ~130 MiB/GPU VRAM cost.
 
-n=3/p=0 was selected over n=2/p=0 as the agent default because it is 8.0%
-faster at production temperature 0.6 (73.76 vs 68.30 tok/s) and more energy-efficient
-(8.46 vs 8.75 J/token). p_min sweep (0/0.05/0.10/0.20) showed no effect —
-the model's MTP confidence is consistently above 0.20. n=4 is
-slower than n=3 (73.62 vs 73.76 tok/s) with acceptance near the 50% viability
-threshold.
+n=3/p=0 was selected over n=2/p=0 as the default MTP configuration for all
+profiles because it is 8.0% faster at temp=0.6 (73.76 vs 68.30 tok/s) and
+8.6% faster at temp=0.7 (75.02 vs 69.10 tok/s), both exceeding the 5%
+threshold. n=3 is also more energy-efficient at both temperatures (8.46 vs
+8.75 J/token at 0.6, 8.36 vs 9.08 J/token at 0.7). p_min sweep
+(0/0.05/0.10/0.20) showed no effect — the model's MTP confidence is
+consistently above 0.20. n=4 is slower than n=3 (73.62 vs 73.76 tok/s)
+with acceptance near the 50% viability threshold.
 
 Do not use `-ngl all`; it disables auto-fit and requests an impossible
 per-device allocation for a 40 GiB model. Use `--fit on` instead. Do not use
@@ -166,10 +185,14 @@ reproduced — never globally.
 If 128K context does not fit, follow this order:
 
 1. Reduce `-ub 256` to `-ub 128` then `-ub 64` (smaller micro-batch reduces compute buffer)
-2. If still compute/prefill OOM, increase `--fit-target` (2048 → 3072/4096 per GPU)
-   to allow the fitter to offload some weights to CPU
+2. If still compute/prefill OOM, increase `--fit-target` (e.g. 4096 → 5120 per GPU)
 3. Switch KV to Q8_0 (`-ctk q8_0 -ctv q8_0`) — preserves 128K context
 4. Only then reduce `-c 131072` to `-c 65536`
+
+For the long profile (256K Q8_0 KV), the OOM ladder is different:
+1. Reduce `-ub 256` to `-ub 128`
+2. Increase `--fit-target` per GPU
+3. Reduce `-c 262144` to `-c 196608` or `-c 131072`
 
 Reducing fit-target (e.g. 2048 → 1536) is NOT an OOM recovery step — it asks
 the fitter to use MORE VRAM (less margin), which is the opposite of relief.

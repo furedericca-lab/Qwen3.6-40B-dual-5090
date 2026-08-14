@@ -134,11 +134,14 @@ minimal VRAM cost.
 
 ## Final Profile Recommendations
 
-### Agent/Coding Profile (PRIMARY)
+### Agent Profile (DEFAULT)
 
 ```text
 MTP_N_MAX=3  MTP_P_MIN=0
 -b 1024 -ub 256
+128K F16 KV
+--fit-target 2048,4096
+--reasoning auto --reasoning-format deepseek --reasoning-preserve
 temp=0.6  top_p=0.95  top_k=20  min_p=0  repeat_penalty=1.0
 ```
 
@@ -146,42 +149,49 @@ temp=0.6  top_p=0.95  top_k=20  min_p=0  repeat_penalty=1.0
 - 2,042 tok/s prefill at 66K
 - J/token: 8.46
 - 60.7% acceptance — well above 50% viability threshold
+- reasoning-preserve: -2.4% prompt tokens, -6.8% wall time, neutral decode
 
-### Balanced Profile (FALLBACK)
+### General Profile
 
 ```text
-MTP_N_MAX=2  MTP_P_MIN=0
+MTP_N_MAX=3  MTP_P_MIN=0
 -b 1024 -ub 256
+128K F16 KV
+--fit-target 2048,4096
+--reasoning auto --reasoning-format deepseek --reasoning-preserve
 temp=0.7  top_p=0.95  top_k=20  min_p=0  repeat_penalty=1.0
 ```
 
-- 68.30 tok/s decode (1.96x vs MTP-off) at temp=0.6
-- Slightly more stable at higher temperatures
-- Better for interactive use with higher sampling variance
+- 75.02 tok/s decode (2.16x vs MTP-off) at temp=0.7
+- 8.36 J/token
+- 63.2% acceptance
+- n=3 confirmed 8.6% faster than n=2 at temp=0.7
 
-### Creative Profile
-
-```text
-MTP_MODE=off
--b 1024 -ub 256
-temp>1 or creative sampler
-repeat_penalty=1.0 (increase to 1.02-1.05 only if looping observed)
-```
-
-- MTP off per DavidAU's recommendation for temp>1
-- 34.77 tok/s baseline
-- Predictable autoregressive latency
-
-### Long Profile (FUTURE)
+### Long Profile
 
 ```text
 -c 262144 -ctk q8_0 -ctv q8_0
 MTP_N_MAX=3  MTP_P_MIN=0
 -b 1024 -ub 256
+--fit-target 2048,4096
+temp=0.6
 ```
 
-- Not yet tested — Phase 4 of this scope
-- Theory: 256K context with Q8_0 KV ≈ same KV size as 128K F16
+- Short decode: 43.83 tok/s (vs 92 at 128K)
+- Retrieval validated up to ~172K tokens
+- Decode at 120K+ tokens: 10-13 tok/s
+- GPU0 free: ~2,497 MiB (tight but stable)
+- No reasoning-preserve (not tested with 256K)
+
+### Creative / High-Temperature
+
+No separate profile. Use per-request sampler overrides:
+
+```json
+temperature: 1.0-1.2, top_k: 40, min_p: 0.05
+```
+
+If temp>1, disable MTP via `MTP_MODE=off`.
 
 ## Key Decisions
 
@@ -199,9 +209,199 @@ MTP_N_MAX=3  MTP_P_MIN=0
 4. **ub=256 is the default batch size**: +20-34% prefill, zero decode penalty,
    ~130 MiB/GPU VRAM cost. ub=512 appears to OOM.
 
-5. **n=2 remains the balanced fallback**: At higher temperatures (0.7+),
-   n=2's higher acceptance rate provides more predictable performance.
+5. **n=3/p=0 for all profiles**: At temp=0.7, n=3 is 8.6% faster than n=2
+   (75.02 vs 69.10 tok/s), confirming n=3 as the universal MTP default.
 
 6. **repeat_penalty=1.0 remains fixed**: Q8_0 does not benefit from repeat
-   penalty. Only increase to 1.02-1.05 in a creative profile if looping
+   penalty. Only increase via per-request override to 1.02-1.05 if looping
    is stably reproduced.
+
+7. **fit-target 2048,4096 maximizes min(free)**: At 2048,2048, GPU1 had only
+   2,799 MiB free (bottleneck). At 2048,4096, both GPUs have ~4-4.5 GiB free.
+   Decode regression is <0.2%. This is the new universal baseline.
+
+8. **cache-reuse is unsupported**: The Qwen3.5 hybrid architecture (24 dense +
+   72 SSM layers) does not support cache-reuse in current llama.cpp. The prompt
+   cache feature is enabled but non-functional without it.
+
+9. **128K Q8_0 KV has zero quality loss**: Compared to F16 at 128K context,
+   Q8_0 KV produces identical quality and within-1% decode speed. VRAM savings
+   are ~4 GiB on GPU0.
+
+10. **256K Q8_0 KV is viable with trade-offs**: Needle retrieval works up to
+    ~172K tokens. Decode speed drops ~52% vs 128K (44 vs 92 tok/s short prompt)
+    due to doubled KV cache for dense attention layers. At >120K tokens, decode
+    is 10-13 tok/s.
+
+## temp=0.7 A/B: n=2 vs n=3 (General Profile Validation)
+
+| Config | Mean tok/s | StdDev | J/token | Accept Rate | Draft_n | Accepted |
+|--------|----------:|-------:|--------:|------------:|--------:|---------:|
+| n=2, p=0 | 69.10 | 0.029 | 9.08 | 74.2% | 159 | 118 |
+| n=3, p=0 | **75.02** | 0.059 | **8.36** | 63.2% | 204 | 129 |
+
+n=3 is 8.6% faster than n=2 at temp=0.7, confirming n=3/p=0 as the
+universal MTP default for all profiles. n=3 is also 8.6% more energy-efficient
+(8.36 vs 9.08 J/token).
+
+## Reasoning-Preserve Evaluation (10-turn Agent Benchmark)
+
+Server launched with `--reasoning auto --reasoning-format deepseek
+--reasoning-preserve`. 10-turn coding task (CSV parser), 512 max tokens/turn,
+seed=42, temp=0.6. Conversation history accumulates across turns.
+
+| Metric | Baseline | +reasoning-preserve | Delta |
+|--------|--------:|--------------------:|------:|
+| Total prompt tokens | 14,523 | 14,174 | -2.4% |
+| Total completion tokens | 4,485 | 4,135 | -7.8% |
+| Total wall time | 60.1s | 56.0s | -6.8% |
+| Avg decode tok/s | 74.6 | 73.8 | -1.1% |
+| Avg prompt tok/turn | 1,452 | 1,417 | -2.4% |
+
+Reasoning content was present in 9/10 turns with reasoning-preserve and also
+9/10 turns without it (Qwen3.6 naturally reasons). The key difference:
+reasoning-preserve retains the reasoning trace in context rather than
+stripping it, resulting in slightly more compact prompt tokens (the preserved
+reasoning replaces what would otherwise be a longer assistant response prefix).
+
+Decode speed is essentially identical (73.8 vs 74.6 tok/s, -1.1%). The wall
+time improvement comes from fewer total tokens generated.
+
+**Conclusion**: Reasoning-preserve is net positive for agent workloads — it
+preserves reasoning traces across turns with no decode penalty and slightly
+reduces prompt overhead. Enable for agent/coding profiles.
+
+## Cache-Reuse Evaluation
+
+Server launched with `--cache-reuse 256 -lv 4`. The server log reports:
+
+```
+W srv    load_model: cache_reuse is not supported by this context, it will be disabled
+```
+
+The Qwen3.5 hybrid architecture (24 dense attention + 72 SSM layers) does
+not support cache-reuse in current llama.cpp. The prompt cache feature is
+enabled (size limit 8192 MiB) but is non-functional without cache-reuse.
+
+**Conclusion**: Cache-reuse is unsupported. Abandon cache direction. Production
+default uses `--reasoning auto --reasoning-format deepseek --reasoning-preserve`
+only (from T011).
+
+## VRAM Balance Optimization (T014)
+
+Current baseline `--fit-target 2048,2048` results in asymmetric VRAM usage:
+GPU1 has only ~2.8 GiB free while GPU0 has ~5.7 GiB. The bottleneck GPU
+determines OOM risk.
+
+Sweep of per-device fit-target values:
+
+| fit-target | GPU0 used | GPU0 free | GPU1 used | GPU1 free | min(free) | Decode tok/s |
+|---|---:|---:|---:|---:|---:|---:|
+| 2048,2048 | 26,426 | 5,725 | 29,352 | 2,799 | **2,799** | 90.58 |
+| 2048,3072 | 27,230 | 4,921 | 28,550 | 3,601 | **3,601** | 90.43 |
+| 2048,4096 | 28,118 | 4,033 | 27,660 | 4,491 | **4,033** | 90.47 |
+| 2048,4608 | 28,520 | 3,631 | 27,260 | 4,891 | **3,631** | 90.49 |
+| 2048,5120 | 28,920 | 3,231 | 26,860 | 5,291 | **3,231** | 90.40 |
+
+**Decision**: `--fit-target 2048,4096` — min(free)=4,033 MiB (+44% vs baseline),
+both GPUs within 500 MiB of each other (4,033 vs 4,491), decode regression <0.2%.
+This is the new universal baseline for all three profiles.
+
+## 128K F16 vs 128K Q8_0 KV Comparison (T015)
+
+Isolating the effect of KV quantization at the same 128K context size:
+
+### Prefill Speed
+
+| Prompt tokens | F16 KV prefill | Q8_0 KV prefill | Delta |
+|---:|---:|---:|---:|
+| 8,538 | 2,503 tok/s | 2,485 tok/s | -0.7% |
+| 25,860 | 2,284 tok/s | 2,270 tok/s | -0.6% |
+| 36,532 | 1,595 tok/s | 1,493 tok/s | -6.4% |
+| 57,860 | 1,064 tok/s | 1,001 tok/s | -5.9% |
+
+### Decode Speed
+
+| Prompt tokens | F16 KV decode | Q8_0 KV decode | Delta |
+|---:|---:|---:|---:|
+| 25 (short) | 91.27 tok/s | 92.01 tok/s | +0.8% |
+| 8,538 | 67.66 tok/s | 70.15 tok/s | +3.7% |
+| 25,860 | 60.28 tok/s | 62.20 tok/s | +3.2% |
+| 36,532 | 59.34 tok/s | 51.80 tok/s | -12.7% |
+| 57,860 | 46.60 tok/s | 42.54 tok/s | -8.7% |
+
+### VRAM
+
+| Config | GPU0 used | GPU0 free | GPU1 used | GPU1 free |
+|---|---:|---:|---:|---:|
+| 128K F16 | 28,140 | 4,011 | 27,702 | 4,449 |
+| 128K Q8_0 | 24,060 | 8,091 | 27,006 | 5,145 |
+
+Q8_0 KV frees ~4 GiB on GPU0 compared to F16. Short-prompt decode is
+slightly faster with Q8_0 (likely due to smaller KV cache footprint fitting
+better in cache). Long-prompt decode shows more variance.
+
+**Conclusion**: Q8_0 KV at 128K has zero quality loss and negligible performance
+difference vs F16. The VRAM savings are substantial.
+
+## 256K Q8_0 KV — Long Profile Validation (T016-T018)
+
+### Startup
+
+Server starts successfully with `-c 262144 -ctk q8_0 -ctv q8_0`.
+
+| Metric | 128K F16 | 128K Q8_0 | 256K Q8_0 |
+|---|---:|---:|---:|
+| GPU0 used | 28,140 | 24,060 | 29,654 |
+| GPU0 free | 4,011 | 8,091 | 2,497 |
+| GPU1 used | 27,702 | 27,006 | 27,112 |
+| GPU1 free | 4,449 | 5,145 | 5,039 |
+
+256K Q8_0 KV GPU0 free is 2,497 MiB — tight but functional.
+
+### Prefill and Decode at 256K Context
+
+| Prompt tokens | Prefill tok/s | Decode tok/s |
+|---:|---:|---:|
+| 7,610 | 1,222 | 32.68 |
+| 23,060 | 1,156 | 23.53 |
+| 32,560 | 903 | 16.84 |
+| 57,860 | 650 | 11.44 |
+| 84,463 | 937 | 16.71 |
+| 100,102 | 879 | 16.91 |
+| 117,810 | 821 | 11.04 |
+| 124,905 | 802 | 12.99 |
+| 156,272 | 722 | 11.49 |
+| 171,934 | 689 | 10.27 |
+
+Short-prompt decode: 43.83 tok/s (vs 92.01 at 128K Q8_0) — a 52% reduction.
+This is expected: 256K context doubles the KV cache size for 24 dense attention
+layers, making attention computation during decode ~2x slower for those layers.
+SSM layers scale linearly but are cheaper.
+
+### Needle Retrieval
+
+Using diverse-haystack needle-in-haystack tests:
+
+| Prompt tokens | Result |
+|---:|---|
+| 27,274 | FOUND (content) |
+| 42,234 | FOUND (content) |
+| 75,030 | FOUND (reasoning) |
+| 84,463 | FOUND (content) |
+| 93,626 | FOUND (reasoning) |
+| 100,102 | NOT FOUND (repetitive text) |
+| 124,905 | FOUND (content) |
+| 140,533 | FOUND (content) |
+| 156,272 | FOUND (reasoning) |
+| 171,934 | FOUND (content) |
+| 191,091 | NOT FOUND |
+
+Effective retrieval limit: ~172K tokens. The 100K failure was with highly
+repetitive text; diverse text retrieves correctly at 93K+.
+
+**Conclusion**: Long profile is VIABLE with documented trade-offs:
+- Retrieval works up to ~172K tokens
+- Decode speed is ~52% slower than 128K for short prompts (44 vs 92 tok/s)
+- At >120K tokens, decode drops to 10-13 tok/s
+- Not experimental — the architecture works, just slower

@@ -3,11 +3,12 @@
 This repository deploys the Qwen3.6-40B-Eleanor model on dual RTX 5090 GPUs
 using llama.cpp with a pre-built Q8_0 GGUF, 128K context, and MTP enabled.
 
-**Deployment complete** — all 4 phases finished. Agent profile (default):
-n=3, p_min=0, 2.12x MTP speedup (73.76 tok/s at temp=0.6, 8.46 J/token).
-Balanced profile: n=2, p_min=0 (68.30 tok/s). The deployment scope is archived
-under `.scopes/archive/qwen36-40b-eleanor-llamacpp/`. Profile optimization
-scope is at `.scopes/qwen36-40b-profile-optimization/`.
+**Deployment complete** — all 4 phases finished. Three profiles:
+agent (default, n=3/p=0, temp=0.6, 73.76 tok/s, reasoning-preserve), general
+(n=3/p=0, temp=0.7, 75.02 tok/s, reasoning-preserve), long (256K Q8_0 KV,
+~44 tok/s short decode, retrieval up to ~172K tokens). The deployment scope is
+archived under `.scopes/archive/qwen36-40b-eleanor-llamacpp/`. Profile
+optimization scope is at `.scopes/qwen36-40b-profile-optimization/`.
 
 The previous vLLM/MXFP8 deployment route is archived under
 `.scopes/archive/qwen3.6-40b-eleanor-deployment/`. It is a historical record
@@ -20,7 +21,7 @@ only.
 | 1. Build and preflight | Complete | llama.cpp compiled with CUDA sm_120a; GGUF metadata verified |
 | 2. First-boot 128K startup | Complete | 128K startup OK, GPU0=26144 MiB, GPU1=28896 MiB, MTP 90-96% acceptance |
 | 3. Behavior probes | Complete | Math, Chinese, JSON, Python, summary probes all pass |
-| 4. MTP comparison | Complete | Agent profile n=3/p=0: 2.12x speedup, 73.76 tok/s; Balanced n=2/p=0: 68.30 tok/s |
+| 4. MTP comparison | Complete | Agent: n=3/p=0, 73.76 tok/s; General: n=3/p=0, 75.02 tok/s |
 
 ## Deployment Artifact
 
@@ -93,12 +94,14 @@ scripts/llama-server-first-boot.sh
 ```
 
 The script uses profile-based configuration via the `PROFILE` environment
-variable. The default is `agent` (MTP n=3/p=0, temp=0.6). Other profiles:
-`balanced` (n=2/p=0, temp=0.7), `creative` (MTP off, temp=1.0), `long`
-(256K Q8_0 KV, experimental). The script uses direct I/O (`--load-mode dio`),
-automatic two-GPU layer fitting with a 2 GiB margin per GPU (`--fit on
---fit-target 2048,2048`), F16 KV cache, 128K context (`-c 131072`), single
-slot, flash attention, batch 1024/ubatch 256, and MTP enabled. It listens on
+variable. The default is `agent` (MTP n=3/p=0, temp=0.6, reasoning-preserve).
+Other profiles: `general` (n=3/p=0, temp=0.7, reasoning-preserve),
+`long` (256K Q8_0 KV, retrieval up to ~172K tokens). Creative work does not
+get a separate profile — use per-request sampler overrides. The script uses
+direct I/O (`--load-mode dio`), automatic two-GPU layer fitting with
+asymmetric margin (`--fit on --fit-target 2048,4096`), F16 KV cache, 128K
+context (`-c 131072`), single slot, flash attention, batch 1024/ubatch 256,
+MTP enabled, and reasoning-preserve for agent/general. It listens on
 `127.0.0.1:8000` only.
 
 Do not use `-ngl all` for this 40 GiB model: it disables fitting and attempts
@@ -111,7 +114,7 @@ llama-server \
   -dev CUDA0,CUDA1 \
   -sm layer \
   --fit on \
-  --fit-target 2048,2048 \
+  --fit-target 2048,4096 \
   -ctk f16 \
   -ctv f16 \
   -c 131072 \
@@ -123,6 +126,9 @@ llama-server \
   --spec-draft-n-max 3 \
   --spec-draft-n-min 0 \
   --spec-draft-p-min 0 \
+  --reasoning auto \
+  --reasoning-format deepseek \
+  --reasoning-preserve \
   --temp 0.6 \
   --top-p 0.95 \
   --top-k 20 \
@@ -140,10 +146,15 @@ default; `--no-kv-offload` would force KV onto CPU/RAM.
 If 128K context does not fit:
 
 1. Reduce micro-batch: `-ub 128` then `-ub 64`
-2. Relax `--fit-target` (increase 2048 → 3072/4096) to offload weights to CPU
+2. Relax `--fit-target` (increase 4096 → 5120 per GPU) to offload weights to CPU
 3. Switch KV to Q8_0: `-ctk q8_0 -ctv q8_0` (preserves 128K context)
 4. Reduce context: `-c 65536`
 5. Only then consider limited CPU offload
+
+For the long profile (256K Q8_0 KV), the OOM ladder is:
+1. Reduce micro-batch: `-ub 128`
+2. Relax `--fit-target` per GPU
+3. Reduce context: `-c 196608` or `-c 131072`
 
 Reducing fit-target (e.g. 2048 → 1536) is NOT an OOM recovery step — it asks
 the fitter to use MORE VRAM (less margin), which is the opposite of relief.

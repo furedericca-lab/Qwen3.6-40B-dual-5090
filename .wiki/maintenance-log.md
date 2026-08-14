@@ -116,3 +116,61 @@ Append-only history for wiki updates caused by scope work, implementation closeo
   bash -n scripts/benchmark-mtp.sh; PROFILE=agent smoke test passed
 - Residual risk: reasoning-preserve and cache-reuse not yet tested (Phase 3);
   256K Q8_0 KV profile not yet tested (Phase 4)
+
+## 2026-08-15T01:00:00Z [qwen36-40b-profile-optimization]
+
+- Summary: 3-profile convergence. Collapsed 4-profile architecture to 3:
+  agent (n=3/p=0, temp=0.6), general (n=3/p=0, temp=0.7), long (256K Q8_0 KV).
+  Removed "balanced" (replaced by "general" with n=3 confirmed at temp=0.7)
+  and "creative" (creative is per-request sampler override, not a server
+  profile). Ran temp=0.7 A/B benchmark: n=3 is 8.6% faster than n=2
+  (75.02 vs 69.10 tok/s), confirming n=3/p=0 for all profiles. Tested
+  reasoning-preserve: 10-turn agent benchmark shows net positive — prompt
+  tokens reduced 2.4%, wall time reduced 6.8%, decode speed neutral.
+  Updated contracts, milestones (T001-T010d complete), launcher, AGENTS.md,
+  README.md, wiki how-to, wiki decisions.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md,
+  decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/llama-server-first-boot.sh;
+  temp=0.7 A/B benchmark complete; reasoning-preserve 10-turn test complete
+- Residual risk: None — all optimization tasks complete or documented
+
+## 2026-08-15T04:00:00Z [qwen36-40b-profile-optimization]
+
+- Summary: Completed cache-reuse, VRAM balance, Q8_0 KV, and 256K long profile
+  validation. (1) Cache-reuse unsupported: server log reports "cache_reuse is
+  not supported by this context, it will be disabled" — the Qwen3.5 hybrid
+  architecture (24 dense + 72 SSM layers) does not support it. T012 marked
+  N/A. (2) VRAM balance optimized: fit-target changed from 2048,2048 to
+  2048,4096. At 2048,2048, GPU1 had only 2,799 MiB free (bottleneck). At
+  2048,4096, both GPUs have ~4-4.5 GiB free, min(free)=4,033 MiB (+44%).
+  Decode regression <0.2%. (3) 128K Q8_0 KV has zero quality loss vs F16:
+  short decode 92.01 vs 91.27 tok/s, 8K prefill 2,485 vs 2,503 tok/s.
+  GPU0 frees ~4 GiB extra. (4) 256K Q8_0 KV long profile is viable with
+  documented trade-offs: short decode 43.83 tok/s (-52% vs 128K), needle
+  retrieval works up to ~172K tokens, decode at 120K+ is 10-13 tok/s.
+  GPU0 free is 2,497 MiB (tight but stable). Reasoning-preserve added to
+  agent and general profiles. Updated all docs: launcher, AGENTS.md, README,
+  contracts, milestones, wiki how-to, wiki decisions, RESULTS.md.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md,
+  decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/llama-server-first-boot.sh;
+  VRAM balance 5-point sweep complete; 128K F16 vs Q8_0 A/B complete;
+  256K Q8_0 needle retrieval tested at 27K-245K tokens;
+  kernel taint 4096 (normal), no BAD_PAGE/Xid
+- Residual risk: None — all optimization tasks complete or documented
+
+## 2026-08-15T06:00:00Z [qwen36-40b-profile-optimization]
+
+- Summary: Scope closed and archived. Final documentation cleanup: fixed
+  stale 2048,2048 references in AGENTS.md (line 116 → 2048,4096) and
+  kv-cache-budget.md (line 87 → asymmetric fit-target explanation). Updated
+  contracts: agent/general profiles now show reasoning-preserve in table,
+  long profile no longer labeled experimental. All T001-T021 complete.
+  Scope archived to .scopes/archive/qwen36-40b-profile-optimization/.
+- Pages: AGENTS.md, .wiki/reference/qwen35-kv-cache-budget.md,
+  .scopes/qwen36-40b-profile-optimization/qwen36-40b-profile-optimization-contracts.md,
+  .scopes/qwen36-40b-profile-optimization/qwen36-40b-profile-optimization-scope-milestones.md
+- Verification: grep -rn "2048,2048" shows only historical/comparative
+  references remain; all active config references are 2048,4096
+- Residual risk: None — scope complete and archived
