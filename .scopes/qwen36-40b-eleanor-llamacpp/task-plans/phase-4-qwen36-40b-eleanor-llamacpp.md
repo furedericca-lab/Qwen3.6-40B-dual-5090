@@ -15,14 +15,15 @@ throughput (tok/s) and output quality, recorded as evidence.
 Tasks:
 
 - [ ] T030 [Infra] Establish MTP-off baseline
-  - DoD: Restart server with MTP disabled (equivalent to
-    `--no-mtp` or `nextn_predict_layers: 0`). Run raw, Chinese, and Python
-    probes. Record tok/s.
+  - DoD: Restart server with `--spec-type none` (the llama.cpp default). Run raw,
+    Chinese, and Python probes. Record tok/s. The same MTP GGUF is used; only
+    `--spec-type` differs between runs.
   - Evidence: Probe outputs and timing saved to evidence/mtp-off/.
 
 - [ ] T031 [Infra] Establish MTP-on baseline
-  - DoD: Server with MTP enabled (default, `nextn_predict_layers: 1`). Run the
-    same raw, Chinese, and Python probes. Record tok/s.
+  - DoD: Server with MTP enabled (`--spec-type draft-mtp`, `--spec-draft-n-max 2`,
+    `--spec-draft-n-min 0`, `--spec-draft-p-min 0.75`). Run the same raw, Chinese,
+    and Python probes. Record tok/s.
   - Evidence: Probe outputs and timing saved to evidence/mtp-on/.
 
 - [ ] T032 [QA] Compare quality

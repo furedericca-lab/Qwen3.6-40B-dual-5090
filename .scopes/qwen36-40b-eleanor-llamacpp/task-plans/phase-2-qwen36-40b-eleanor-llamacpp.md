@@ -25,10 +25,14 @@ Tasks:
     equivalent; `curl http://127.0.0.1:8000/v1/models` lists the model.
   - Evidence: curl outputs recorded.
 
-- [ ] T012 [QA] Record GPU and RAM footprint
+- [ ] T012 [QA] Record GPU and RAM footprint and llama.cpp allocation log
   - DoD: `nvidia-smi` shows per-GPU VRAM usage; `free -h` shows host RAM usage.
+    The llama-server startup log is saved, including: model buffer, KV buffer,
+    recurrent/RS buffer, compute buffer, MTP/draft buffer, and fit result per GPU.
     Confirm no OOM, no swap thrashing.
   - Evidence: `nvidia-smi --query-gpu=memory.used,memory.total` and `free -h`.
+    Startup allocation log saved (model buffer, KV buffer, RS buffer, compute
+    buffer, draft/MTP buffer, fit result per GPU).
 
 - [ ] T013 [Security] Verify localhost-only bind
   - DoD: Server is reachable on `127.0.0.1:8000` and not on `0.0.0.0` or LAN
@@ -41,6 +45,17 @@ Checkpoint: Server is running stably at 128K and ready for behavior probes.
 
 If 128K startup fails with OOM, follow the ladder before reporting failure:
 
-1. Reduce `-b 512 -ub 128` to `-b 256 -ub 64`
-2. Reduce `-c 131072` to `-c 65536`
-3. Record the failure and escalate
+A. If model load/fit only needs a small VRAM reduction:
+   `--fit-target 2048,2048` → `1536,1536`
+
+B. If compute/prefill OOM:
+   `-ub 128` → `-ub 64`
+
+C. If KV allocation does not fit:
+   `-ctk f16 -ctv f16` → `-ctk q8_0 -ctv q8_0` (preserves 128K context)
+
+D. Only then reduce context:
+   `-c 131072` → `-c 65536`
+
+Do not jump to context reduction before trying fit-target, batch, and KV
+precision adjustments. Preserving 128K context is preferred over F16 KV.

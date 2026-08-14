@@ -11,7 +11,7 @@ only.
 
 | Phase | Status | Description |
 |---|---|---|
-| 1. Build and preflight | In Progress | llama.cpp compiled with CUDA sm_120a; GGUF metadata verified |
+| 1. Build and preflight | Complete | llama.cpp compiled with CUDA sm_120a; GGUF metadata verified |
 | 2. First-boot 128K startup | Not Started | `llama-server` loads at 128K context on dual 5090 |
 | 3. Behavior probes | Not Started | Raw, chat, Chinese, JSON, Python, and long-prefill probes |
 | 4. MTP comparison | Not Started | MTP-on vs MTP-off throughput and quality comparison |
@@ -130,7 +130,7 @@ If 128K context does not fit:
 2. Reduce micro-batch: `-ub 64`
 3. Switch KV to Q8_0: `-ctk q8_0 -ctv q8_0` (preserves 128K context)
 4. Reduce context: `-c 65536`
-3. Only then consider limited CPU offload
+5. Only then consider limited CPU offload
 
 ## Verification
 

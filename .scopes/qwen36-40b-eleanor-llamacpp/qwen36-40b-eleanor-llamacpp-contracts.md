@@ -217,5 +217,7 @@ journalctl -k -b --no-pager | grep -iE 'BAD_PAGE|Oops|general protection|Xid'
 - The pre-built Q8_0 GGUF is the accepted artifact; no GGUF conversion or
   requantization is planned.
 - The archived vLLM scope is historical only; it does not constrain this scope.
-- MTP is enabled by default per user requirement; disabling it is only for
-  Phase 4 comparison, not a runtime change.
+- The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`). Runtime
+  MTP is explicitly enabled with `--spec-type draft-mtp`; the llama.cpp default
+  speculative decoding type is `none`. Disabling MTP for Phase 4 comparison
+  uses `--spec-type none`, not modification of GGUF metadata.

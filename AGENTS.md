@@ -100,7 +100,9 @@ per-device allocation for a 40 GiB model. Use `--fit on` instead. Do not use
 `--no-kv-offload`; KV offload to GPU is the default in llama.cpp, and
 `--no-kv-offload` would force KV to CPU/RAM.
 
-MTP is enabled by default (`nextn_predict_layers: 1` in the GGUF metadata).
+The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`).
+Runtime MTP is explicitly enabled with `--spec-type draft-mtp`;
+the llama.cpp default speculative decoding type is `none`.
 `n-max=2` is used because `n-max=3` has a reported Qwen3.6 output drift bug
 (llama.cpp issue #23302). Phase 4 compares MTP-on vs MTP-off and benchmarks
 n=1/2/3.
@@ -112,6 +114,11 @@ to 65536.
 Bind to `127.0.0.1` only. Do not expose the API on a LAN interface unless the
 user explicitly approves it. Do not use CPU weight offload as the primary
 strategy.
+
+The launcher passes `$@` to allow controlled experimental overrides (e.g.
+Phase 4 uses `scripts/llama-server-first-boot.sh --spec-type none` for MTP-off
+baseline). All appended arguments must be recorded in the evidence for that
+run; do not use `$@` to bypass the canonical baseline without documentation.
 
 ## Large Model Safety
 
