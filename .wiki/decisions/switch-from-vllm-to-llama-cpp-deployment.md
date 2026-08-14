@@ -49,18 +49,19 @@ In llama.cpp, KV offload to GPU is the **default** — `--no-kv-offload`
 **disables** GPU KV and forces KV to CPU/RAM. Since the target is all-KV-on-GPU,
 this flag was removed. The default behavior (KV on GPU) is what we want.
 
-### --spec-type draft-mtp --spec-draft-n-max 2 (baseline, not final)
+### --spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-p-min 0 (production default)
 
-`n-max=2` is the Phase 2 baseline. The original n-max=3 Qwen3.6 output drift
-bug (llama.cpp #23302) was closed after further testing showed Q8_0 is
-unaffected at n=1-5; however, n-max=2 remains the conservative first-boot
-choice. Phase 4 will benchmark four configurations: n=2/3 × p_min=0/0.75.
-The Eleanor author recommends n-max=2 with ~60% acceptance at 2 tokens.
+`n-max=2` with `p_min=0` is the production default after Phase 4 benchmarking.
+Phase 4 tested four configurations (n=2/3 × p_min=0/0.75) and found:
 
-Additional MTP flags: `--spec-draft-n-min 0` (draft can be as short as 0
-tokens), `--spec-draft-p-min 0.75` (stop drafting when MTP head confidence
-drops below 0.75, reducing wasted computation on low-confidence drafts).
-p_min=0.75 is also a baseline value — Phase 4 will test it against p_min=0.
+- n=2, p=0: 73.5 tok/s (2.12x speedup, 82.9% acceptance) ← best balance
+- n=2, p=0.75: 63.1 tok/s (1.82x, 94.1% acceptance) — high acceptance but slower
+- n=3, p=0: 78.6 tok/s (2.26x, 69.9% acceptance) — fastest but more wasted compute
+- n=3, p=0.75: 69.9 tok/s (2.01x, 93.5% acceptance)
+
+The original n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was closed
+after further testing showed Q8_0 is unaffected at n=1-5. Quality was verified
+across all configurations: no output degradation at any n-max setting.
 
 ### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
 

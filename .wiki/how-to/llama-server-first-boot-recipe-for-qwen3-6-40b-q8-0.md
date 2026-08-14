@@ -35,7 +35,7 @@ First-boot recipe after llama.cpp is built and GGUF is on NVMe:
 --spec-type draft-mtp
 --spec-draft-n-max 2
 --spec-draft-n-min 0
---spec-draft-p-min 0.75
+--spec-draft-p-min 0
 --temp 0.6
 --top-p 0.95
 --top-k 20
@@ -66,7 +66,7 @@ Leaving ~5.6 GiB for CUDA buffers, FA workspace, and the 2 GiB fit-target
 margin. Using a larger fit-target (e.g. 8192) would force the fit algorithm to
 offload more weights to CPU, hurting decode speed.
 
-### --spec-draft-n-max 2 (baseline, not final)
+### --spec-draft-n-max 2 (production default)
 
 Qwen3.6 had a reported bug where `n-max=3` changed deterministic output
 (llama.cpp issue #23302), but the issue was closed after testing showed
@@ -75,12 +75,15 @@ baseline. Phase 4 will benchmark four configurations: n=2/3 × p_min=0/0.75.
 The Eleanor author recommends `n-max=2` and reports ~60% acceptance at
 2 tokens.
 
-### --spec-draft-p-min 0.75 (baseline)
+### --spec-draft-p-min 0 (production default)
 
-Stops drafting early when the MTP head confidence drops below 0.75. Default
-is 0.0 (never stop early). Setting 0.75 reduces wasted computation on
-low-confidence drafts. This is a baseline value — Phase 4 will compare
-p_min=0 vs p_min=0.75 at both n=2 and n=3 to find the optimal combination.
+`p_min=0` means the MTP head always drafts up to `n-max` tokens without
+ever stopping early. This is the production default after Phase 4
+benchmarking showed it delivers the best balance of speed and acceptance:
+2.12x speedup over MTP-off with 82.9% acceptance. Setting `p_min=0.75`
+would stop drafting when MTP head confidence drops below 0.75, improving
+acceptance (94.1%) but paradoxically reducing throughput (1.82x) because
+it cuts draft sequences short, reducing average verified-tokens-per-step.
 
 ### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
 
@@ -138,7 +141,7 @@ Do not sacrifice 128K context before trying Q8_0 KV.
 
 ## First-boot results (2026-08-14)
 
-128K startup with MTP on (n-max=2, p-min=0.75) on upstream-synced build:
+128K startup with MTP on (n-max=2, p-min=0, production default):
 
 ```text
 GPU0: 26144 MiB used (of 32607 MiB)

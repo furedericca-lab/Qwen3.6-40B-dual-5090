@@ -20,7 +20,7 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
 | Phase 1: Build and preflight | Complete | 100% | Good | 0 |
 | Phase 2: First-boot 128K startup | Complete | 100% | Good | 0 |
 | Phase 3: Behavior probes | Complete | 100% | Good | 0 |
-| Phase 4: MTP comparison | Not Started | 0% | Unknown | 0 |
+| Phase 4: MTP comparison | Complete | 100% | Good | 0 |
 
 ## Phase Entry Links
 1. [phase-1-qwen36-40b-eleanor-llamacpp.md](phase-1-qwen36-40b-eleanor-llamacpp.md)
@@ -71,3 +71,21 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
 - Scope constraints preserved.
 - Quality/security gates passed.
 - Remaining risks documented.
+
+### Phase 4 complete — 2026-08-14
+- Phase: 4
+- Batch date: 2026-08-14
+- Completed tasks: T030 (MTP-off baseline: 34.71 tok/s), T031 (MTP-on baseline n=2/p=0.75: 63.10 tok/s), T032 (quality verified across all configs), T033 (4-config throughput comparison), T034 (docs updated to production default n=2/p=0)
+- Evidence commands:
+  - `ls evidence/mtp-comparison/` shows 5 configurations x 5 probes + RESULTS.md
+  - MTP-off mean: 34.71 tok/s (baseline)
+  - n=2/p=0 mean: 73.52 tok/s (2.12x, 82.9% acceptance) ← production default
+  - n=2/p=0.75 mean: 63.10 tok/s (1.82x, 94.1% acceptance)
+  - n=3/p=0 mean: 78.60 tok/s (2.26x, 69.9% acceptance)
+  - n=3/p=0.75 mean: 69.90 tok/s (2.01x, 93.5% acceptance)
+  - All quality probes pass: correct math, fluent Chinese, valid JSON, correct Python, accurate summary
+  - Kernel taint 4096 (normal), no BAD_PAGE/Oops/Xid across all runs
+  - VRAM: 52-54 GiB total depending on config, all within dual-5090 budget
+- Issues/blockers: None
+- Resolutions: N/A
+- Checkpoint confirmed: Yes — all 4 phases complete, production default is n=2/p=0

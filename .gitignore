@@ -17,3 +17,7 @@ models/
 *.partial
 artifacts/
 tmp/
+
+# Probe evidence (raw JSON files)
+evidence/**/*.json
+evidence/**/*.csv

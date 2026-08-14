@@ -25,11 +25,13 @@ spec_args=()
 
 case "$MTP_MODE" in
   on)
+    MTP_N_MAX=${MTP_N_MAX:-2}
+    MTP_P_MIN=${MTP_P_MIN:-0}
     spec_args=(
       --spec-type draft-mtp
-      --spec-draft-n-max 2
+      --spec-draft-n-max "$MTP_N_MAX"
       --spec-draft-n-min 0
-      --spec-draft-p-min 0.75
+      --spec-draft-p-min "$MTP_P_MIN"
     )
     ;;
   off)

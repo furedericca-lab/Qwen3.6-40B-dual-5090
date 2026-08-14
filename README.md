@@ -14,7 +14,7 @@ only.
 | 1. Build and preflight | Complete | llama.cpp compiled with CUDA sm_120a; GGUF metadata verified |
 | 2. First-boot 128K startup | Complete | 128K startup OK, GPU0=26144 MiB, GPU1=28896 MiB, MTP 90-96% acceptance |
 | 3. Behavior probes | Complete | Math, Chinese, JSON, Python, summary probes all pass |
-| 4. MTP comparison | Not Started | MTP-on vs MTP-off throughput and quality comparison |
+| 4. MTP comparison | Complete | n=2/p=0 production default: 2.12x speedup, 82.9% acceptance |
 
 ## Deployment Artifact
 
@@ -112,7 +112,7 @@ llama-server \
   --spec-type draft-mtp \
   --spec-draft-n-max 2 \
   --spec-draft-n-min 0 \
-  --spec-draft-p-min 0.75 \
+  --spec-draft-p-min 0 \
   --temp 0.6 \
   --top-p 0.95 \
   --top-k 20 \

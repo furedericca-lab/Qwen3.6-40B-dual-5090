@@ -41,12 +41,13 @@ description: Scope boundaries and milestones for qwen36-40b-eleanor-llamacpp.
 | llama.cpp upstream sync | Complete | Fork efb81ab merged with upstream/master (42 commits), merge commit 94e82e8ae, DIO patches preserved, compiled and verified |
 | 128K startup | Complete | `llama-server` loads at `-c 131072` without OOM, GPU0=26144 MiB, GPU1=28896 MiB |
 | API and behavior probes | Complete | `/health` OK, `/v1/models` listed, raw/math/Chinese/JSON/Python/summary all pass |
-| MTP comparison | Pending | MTP-on vs MTP-off evidence recorded |
+| MTP comparison | Complete | MTP-on vs MTP-off evidence recorded; n=2,p=0 optimal (2.12x speedup, 82.9% acceptance) |
 
 ## Dependencies
 
 - Pre-built Q8_0 GGUF at `/data/linux-fast/models/Qwen3.6-40B-Eleanor-GGUF/`
 - `llama.cpp` submodule at merge commit `94e82e8ae` (fork efb81ab + upstream/master 885c5bb)
+- Phase 4 MTP comparison complete: n=2, p_min=0 is the production default (2.12x speedup, 82.9% acceptance)
 - CUDA Toolkit 13.3, Clang 21, CMake 4.4, Ninja
 - Dual RTX 5090 with idle VRAM
 - Clean kernel boot (taint 0 or 4096, no BAD_PAGE/Oops/Xid)

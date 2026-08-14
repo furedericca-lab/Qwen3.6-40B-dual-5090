@@ -93,7 +93,7 @@ Serve using `scripts/llama-server-first-boot.sh`, which calls the locally built
 -c 131072 -np 1
 -b 512 -ub 128
 -fa on
---spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-n-min 0 --spec-draft-p-min 0.75
+--spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-n-min 0 --spec-draft-p-min 0
 --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0 --repeat-penalty 1.0
 --host 127.0.0.1 --port 8000
 ```
@@ -106,11 +106,13 @@ per-device allocation for a 40 GiB model. Use `--fit on` instead. Do not use
 The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`).
 Runtime MTP is explicitly enabled with `--spec-type draft-mtp`;
 the llama.cpp default speculative decoding type is `none`.
-`n-max=2` is the Phase 2 baseline; Phase 4 compares MTP-on vs MTP-off
-and benchmarks n=2/3 with p_min=0/0.75 (four test configurations). The
-n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was closed after
-testing showed Q8_0 is unaffected at n=1-5; n-max=2 remains the conservative
-first-boot choice.
+`n-max=2` with `p_min=0` is the production default after Phase 4
+benchmarking (2.12x speedup vs MTP-off, 82.9% acceptance). Phase 4
+tested n=2/3 × p_min=0/0.75: n=3,p=0 is fastest (2.26x) but with lower
+acceptance (69.9%); n=2,p=0.75 has highest acceptance (94.1%) but lower
+speed (1.82x); n=2,p=0 is the best balance. The n-max=3 Qwen3.6 output
+drift bug (llama.cpp #23302) was closed after testing showed Q8_0 is
+unaffected at n=1-5.
 
 OOM ladder: reduce `--fit-target` first, then `-ub`, then switch KV to Q8_0
 (`-ctk q8_0 -ctv q8_0`, preserves 128K context), and only then reduce `-c`

@@ -49,6 +49,13 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Verification: llama-server --list-devices, /health, /v1/models, nvidia-smi, free -h, ss -tlnp, dmesg
 - Residual risk: None — Phase 2+3 fully verified, server stable
 
+## 2026-08-14T20:00:00Z [qwen36-40b-eleanor-llamacpp]
+
+- Summary: Phase 4 MTP comparison complete. Tested 5 configurations (MTP-off + 4 MTP variants). Production default updated to n=2, p_min=0 (2.12x speedup, 82.9% acceptance). Launcher script updated to support MTP_N_MAX and MTP_P_MIN env vars for easy reconfiguration. Evidence saved to evidence/mtp-comparison/. All scope docs, AGENTS.md, README.md, and wiki pages updated to reflect production defaults and Phase 4 results.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/llama-server-first-boot.sh; bash -n scripts/probe-all.sh; evidence/mtp-comparison/RESULTS.md cross-checked
+- Residual risk: None — all 4 phases complete, deployment fully verified
+
 ## 2026-08-14T14:00:00Z [qwen36-40b-eleanor-llamacpp]
 
 - Summary: Updated MTP parameter characterization from "n-max=3 has a bug" to "n-max=2 is the conservative baseline". The original Qwen3.6 output drift bug (llama.cpp #23302) was closed after testing showed Q8_0 is unaffected at n=1-5. Phase 4 now plans a 4-configuration test matrix: n=2/3 × p_min=0/0.75. Also clarified that sampling params (top_k=20, min_p=0, repeat_penalty=1.0) are Qwen3.6 official coding parameters, not DavidAU's general-purpose profile (which uses top_k=40, min_p=0.05, repeat_penalty=1.02-1.15 for creative/RP use). Decided not to update llama.cpp submodule before Phase 2 first boot — fork is already at its own remote HEAD; upstream sync will be done on a separate branch after baseline is established.
