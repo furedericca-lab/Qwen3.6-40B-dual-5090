@@ -4,8 +4,9 @@ This repository deploys the Qwen3.6-40B-Eleanor model on dual RTX 5090 GPUs
 using llama.cpp with a pre-built Q8_0 GGUF, 128K context, and MTP enabled.
 
 **Deployment complete** — all 4 phases finished. Production config: n=2,
-p_min=0, 2.12x MTP speedup. The deployment scope is archived under
-`.scopes/archive/qwen36-40b-eleanor-llamacpp/`.
+p_min=0, 2.05x MTP speedup (71.20 tok/s, stddev 0.03). Maximum throughput
+config: n=3, p_min=0 (2.34x, 81.35 tok/s). The deployment scope is archived
+under `.scopes/archive/qwen36-40b-eleanor-llamacpp/`.
 
 The previous vLLM/MXFP8 deployment route is archived under
 `.scopes/archive/qwen3.6-40b-eleanor-deployment/`. It is a historical record
@@ -18,7 +19,7 @@ only.
 | 1. Build and preflight | Complete | llama.cpp compiled with CUDA sm_120a; GGUF metadata verified |
 | 2. First-boot 128K startup | Complete | 128K startup OK, GPU0=26144 MiB, GPU1=28896 MiB, MTP 90-96% acceptance |
 | 3. Behavior probes | Complete | Math, Chinese, JSON, Python, summary probes all pass |
-| 4. MTP comparison | Complete | n=2/p=0 production default: 2.12x speedup, 82.9% acceptance |
+| 4. MTP comparison | Complete | n=2/p=0 balanced default: 2.05x speedup, 71.20 tok/s; n=3/p=0 max throughput: 2.34x, 81.35 tok/s |
 
 ## Deployment Artifact
 
@@ -133,11 +134,14 @@ default; `--no-kv-offload` would force KV onto CPU/RAM.
 
 If 128K context does not fit:
 
-1. Reduce `--fit-target` (2048 to 1536 per GPU)
-2. Reduce micro-batch: `-ub 64`
+1. Reduce micro-batch: `-ub 64`
+2. Relax `--fit-target` (increase 2048 → 3072/4096) to offload weights to CPU
 3. Switch KV to Q8_0: `-ctk q8_0 -ctv q8_0` (preserves 128K context)
 4. Reduce context: `-c 65536`
 5. Only then consider limited CPU offload
+
+Reducing fit-target (e.g. 2048 → 1536) is NOT an OOM recovery step — it asks
+the fitter to use MORE VRAM (less margin), which is the opposite of relief.
 
 ## Verification
 

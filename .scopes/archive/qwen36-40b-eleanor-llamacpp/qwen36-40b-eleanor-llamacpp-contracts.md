@@ -76,13 +76,18 @@ contradicts the target of keeping all KV on GPU.
 
 If 128K context does not fit, follow this order:
 
-1. Reduce `--fit-target` (e.g. 2048 → 1536 per GPU)
-2. Reduce `-ub 128` to `-ub 64`
-3. Switch KV precision from F16 to Q8_0 (`-ctk q8_0 -ctv q8_0`) while keeping 128K context
+1. Reduce `-ub 128` to `-ub 64` (smaller micro-batch reduces compute buffer)
+2. If still compute/prefill OOM, increase `--fit-target 2048` to `3072` or
+   `4096` per GPU (allows the fitter to keep less on GPU, offloading some
+   weights to CPU — this hurts decode speed but preserves 128K context)
+3. If mainly KV pressure, switch KV precision from F16 to Q8_0
+   (`-ctk q8_0 -ctv q8_0`) — halves KV budget while keeping 128K context
 4. Only then reduce `-c` from 131072 to 65536
 
-Do not jump to context reduction before trying fit-target, batch, and KV
-precision adjustments. Preserving 128K context is preferred over F16 KV.
+Do not jump to context reduction before trying ubatch, fit-target relaxation,
+and KV precision adjustments. Preserving 128K context is preferred over F16 KV.
+Reducing fit-target (e.g. 2048 → 1536) is NOT an OOM recovery step — it asks
+the fitter to use MORE VRAM (less margin), which is the opposite of relief.
 
 ## Hardware Constraints
 
@@ -226,13 +231,16 @@ journalctl -k -b --no-pager | grep -iE 'BAD_PAGE|Oops|general protection|Xid'
 - The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`). Runtime
   MTP is explicitly enabled with `--spec-type draft-mtp`; the llama.cpp default
   speculative decoding type is `none`. `n-max=2` with `p_min=0` is the
-  production default after Phase 4 benchmarking (2.12x speedup vs MTP-off,
-  82.9% acceptance). The original n-max=3 Qwen3.6 output drift bug
-  (llama.cpp #23302) was closed after testing showed Q8_0 is unaffected
-  at n=1-5. Phase 4 tested four configurations: n=2/3 × p_min=0/0.75.
-  Results: n=3,p=0 is fastest (2.26x) but with lower acceptance (69.9%);
-  n=2,p=0.75 has highest acceptance (94.1%) but lower speed (1.82x);
-  n=2,p=0 is the best balance. Disabling MTP for comparison uses
+  production default after Phase 4 benchmarking (2.05x speedup vs MTP-off,
+  71.20 tok/s, stddev 0.03). The n-max=3 Qwen3.6 output drift bug
+  (llama.cpp #23302) was superseded by #23335; fixed-seed testing in #23335
+  showed Q8_0 agreeing across no-MTP and MTP n=1–5. Phase 4 benchmark
+  tested five configurations (MTP-off + n=2/3 × p_min=0/0.75) with fixed
+  seed, temperature 0, and 5 repeated runs per config. Results:
+  n=3,p=0 is fastest (2.34x, 81.35 tok/s, stddev 0.29);
+  n=2,p=0 is the balanced default (2.05x, 71.20 tok/s, stddev 0.03);
+  n=2,p=0.75 has highest acceptance (94.0%) but lower speed (1.73x);
+  n=3,p=0.75 is moderate (1.92x, 66.61 tok/s). Disabling MTP for comparison uses
   `MTP_MODE=off` in the launcher, which omits all speculative args entirely.
   Do NOT use `--spec-type none` via `$@` to disable MTP — llama.cpp appends
   spec types into a bitmask, so passing both `draft-mtp` and `none` still

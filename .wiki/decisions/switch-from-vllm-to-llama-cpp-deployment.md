@@ -51,17 +51,18 @@ this flag was removed. The default behavior (KV on GPU) is what we want.
 
 ### --spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-p-min 0 (production default)
 
-`n-max=2` with `p_min=0` is the production default after Phase 4 benchmarking.
-Phase 4 tested four configurations (n=2/3 × p_min=0/0.75) and found:
+`n-max=2` with `p_min=0` is the balanced production default after Phase 4
+rigorous benchmarking (fixed seed, temperature 0, 5 runs per config).
+Phase 4 tested five configurations and found:
 
-- n=2, p=0: 73.5 tok/s (2.12x speedup, 82.9% acceptance) ← best balance
-- n=2, p=0.75: 63.1 tok/s (1.82x, 94.1% acceptance) — high acceptance but slower
-- n=3, p=0: 78.6 tok/s (2.26x, 69.9% acceptance) — fastest but more wasted compute
-- n=3, p=0.75: 69.9 tok/s (2.01x, 93.5% acceptance)
+- n=2, p=0: 71.20 tok/s (2.05x speedup, stddev 0.03) ← balanced default
+- n=2, p=0.75: 60.18 tok/s (1.73x, 94.0% acceptance) — high acceptance but slower
+- n=3, p=0: 81.35 tok/s (2.34x, stddev 0.29) ← maximum throughput
+- n=3, p=0.75: 66.61 tok/s (1.92x, 93.1% acceptance)
 
-The original n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was closed
-after further testing showed Q8_0 is unaffected at n=1-5. Quality was verified
-across all configurations: no output degradation at any n-max setting.
+The n-max=3 drift bug (#23302) was superseded by #23335; fixed-seed testing
+in #23335 showed Q8_0 agreeing across no-MTP and MTP n=1-5. Quality was
+verified across all configurations: no output degradation at any n-max setting.
 
 ### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
 
@@ -72,9 +73,12 @@ can be configured later.
 
 ### OOM ladder: preserve 128K context
 
-The OOM ladder prioritizes preserving 128K context: reduce fit-target, then
-ubatch, then switch KV to Q8_0 (halves KV budget while keeping 128K), and only
-then reduce context to 64K.
+The OOM ladder prioritizes preserving 128K context: reduce ubatch first,
+then relax fit-target (increase to offload more weights to CPU), then switch
+KV to Q8_0 (halves KV budget while keeping 128K), and only then reduce
+context to 64K. Reducing fit-target (e.g. 2048 → 1536) is NOT an OOM
+recovery step — it asks the fitter to use MORE VRAM (less margin), which
+is the opposite of relief.
 
 ### MTP_MODE launcher variable (not $@ --spec-type none)
 

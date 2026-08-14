@@ -43,23 +43,20 @@ Tasks:
     No quality degradation observed with MTP at any n-max setting.
 
 - [x] T033 [QA] Compare throughput across MTP configurations
-  - DoD: Run four MTP configurations and record decode tok/s for each:
-    A. n-max=2, p-min=0 (current baseline without p-min gating)
-    B. n-max=2, p-min=0.75 (current baseline with p-min gating)
-    C. n-max=3, p-min=0 (higher draft count, no gating)
-    D. n-max=3, p-min=0.75 (higher draft count, with gating)
-    Record draft acceptance rate and mean draft length for each configuration.
-    Compare against MTP-off baseline.
-  - Evidence: Full results in evidence/mtp-comparison/RESULTS.md.
-    Summary table:
+  - DoD: Run five MTP configurations (MTP-off + 4 MTP variants) with rigorous
+    benchmarking: fixed seed (42), temperature 0, same prompt, warm-up 1 +
+    formal 5 runs per config. Record decode tok/s mean/median/stddev and
+    draft acceptance rate.
+  - Evidence: Full results in evidence/mtp-benchmark/RESULTS.md.
+    Benchmark summary table:
 
-    | Config       | Mean tok/s | Speedup | Accept Rate |
-    |-------------|----------:|--------:|------------:|
-    | MTP-off     |     34.71 |   1.00x |         N/A |
-    | n=2, p=0    |     73.52 |   2.12x |       82.9% |
-    | n=2, p=0.75 |     63.10 |   1.82x |       94.1% |
-    | n=3, p=0    |     78.60 |   2.26x |       69.9% |
-    | n=3, p=0.75 |     69.90 |   2.01x |       93.5% |
+    | Config       | Mean tok/s | StdDev | Speedup | Accept Rate |
+    |-------------|----------:|-------:|--------:|------------:|
+    | MTP-off     |     34.71 |   0.01 |   1.00x |         N/A |
+    | n=2, p=0    |     71.20 |   0.03 |   2.05x |       77.6% |
+    | n=2, p=0.75 |     60.18 |   0.04 |   1.73x |       94.0% |
+    | n=3, p=0    |     81.35 |   0.29 |   2.34x |       70.7% |
+    | n=3, p=0.75 |     66.61 |   0.71 |   1.92x |       93.1% |
 
 - [x] T034 [Docs] Finalize deployment documentation
   - DoD: README.md, AGENTS.md, scope docs, and launcher all agree on the
@@ -68,6 +65,8 @@ Tasks:
     production configuration.
   - Evidence: Launcher defaults updated to n=2, p_min=0. All scope docs,
     AGENTS.md, README.md, and wiki pages updated to reflect Phase 4 results.
-    Production default: n=2, p_min=0 (2.12x speedup, 82.9% acceptance).
+    Production default: n=2, p_min=0 (balanced, 2.05x speedup, 71.20 tok/s,
+    stddev 0.03). Maximum throughput: n=3, p_min=0 (2.34x, 81.35 tok/s).
+    Benchmark script: scripts/benchmark-mtp.sh (fixed seed, temp=0, 5 runs).
 
 Checkpoint: Deployment is complete with MTP benefit quantified and documented.

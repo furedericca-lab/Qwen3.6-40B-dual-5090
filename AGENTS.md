@@ -22,7 +22,8 @@ pre-built Q8_0 GGUF, 128K context, and MTP enabled.
 
 **Deployment complete** — all 4 phases finished and archived under
 `.scopes/archive/qwen36-40b-eleanor-llamacpp/`. Production default: n=2,
-p_min=0 (2.12x speedup, 82.9% acceptance).
+p_min=0 (2.05x speedup, 71.20 tok/s, stddev 0.03). Maximum throughput:
+n=3, p_min=0 (2.34x, 81.35 tok/s).
 
 The Q8_0 GGUF artifact is the sole deployment model, immutable at:
 
@@ -111,16 +112,20 @@ The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`).
 Runtime MTP is explicitly enabled with `--spec-type draft-mtp`;
 the llama.cpp default speculative decoding type is `none`.
 `n-max=2` with `p_min=0` is the production default after Phase 4
-benchmarking (2.12x speedup vs MTP-off, 82.9% acceptance). Phase 4
-tested n=2/3 × p_min=0/0.75: n=3,p=0 is fastest (2.26x) but with lower
-acceptance (69.9%); n=2,p=0.75 has highest acceptance (94.1%) but lower
-speed (1.82x); n=2,p=0 is the best balance. The n-max=3 Qwen3.6 output
-drift bug (llama.cpp #23302) was closed after testing showed Q8_0 is
-unaffected at n=1-5.
+benchmarking (2.05x speedup vs MTP-off, 71.20 tok/s, stddev 0.03). Phase 4
+benchmark tested n=2/3 × p_min=0/0.75 with fixed seed, temperature 0, and 5
+repeated runs per config: n=3,p=0 is fastest (2.34x, 81.35 tok/s) but with
+lower acceptance (70.7%); n=2,p=0.75 has highest acceptance (94.0%) but
+lower speed (1.73x); n=2,p=0 is the best balance for interactive use.
+The n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was superseded by
+#23335; fixed-seed testing in #23335 showed Q8_0 agreeing across no-MTP
+and MTP n=1–5.
 
-OOM ladder: reduce `--fit-target` first, then `-ub`, then switch KV to Q8_0
-(`-ctk q8_0 -ctv q8_0`, preserves 128K context), and only then reduce `-c`
-to 65536.
+OOM ladder: reduce `-ub` first, then relax `--fit-target` (increase to allow
+less on GPU), then switch KV to Q8_0 (`-ctk q8_0 -ctv q8_0`, preserves
+128K context), and only then reduce `-c` to 65536. Reducing fit-target
+(e.g. 2048 → 1536) is NOT an OOM recovery step — it asks the fitter to use
+more VRAM (less margin).
 
 Bind to `127.0.0.1` only. Do not expose the API on a LAN interface unless the
 user explicitly approves it. Do not use CPU weight offload as the primary

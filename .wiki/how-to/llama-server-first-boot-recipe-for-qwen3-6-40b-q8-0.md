@@ -68,22 +68,24 @@ offload more weights to CPU, hurting decode speed.
 
 ### --spec-draft-n-max 2 (production default)
 
-Qwen3.6 had a reported bug where `n-max=3` changed deterministic output
-(llama.cpp issue #23302), but the issue was closed after testing showed
-Q8_0 is unaffected at n=1-5. `n-max=2` remains the conservative first-boot
-baseline. Phase 4 will benchmark four configurations: n=2/3 × p_min=0/0.75.
-The Eleanor author recommends `n-max=2` and reports ~60% acceptance at
-2 tokens.
+`n-max=2` with `p_min=0` is the production default. The n-max=3 drift bug
+(#23302) was superseded by #23335; fixed-seed testing showed Q8_0 agreeing
+across no-MTP and MTP n=1-5. Phase 4 rigorous benchmark (fixed seed,
+temperature 0, 5 runs per config) confirmed n=3/p=0 is fastest (81.35 tok/s,
+2.34x speedup) while n=2/p=0 is the balanced default (71.20 tok/s, 2.05x
+speedup, stddev 0.03). Operators can set `MTP_N_MAX=3` for maximum
+throughput workloads.
 
 ### --spec-draft-p-min 0 (production default)
 
 `p_min=0` means the MTP head always drafts up to `n-max` tokens without
 ever stopping early. This is the production default after Phase 4
 benchmarking showed it delivers the best balance of speed and acceptance:
-2.12x speedup over MTP-off with 82.9% acceptance. Setting `p_min=0.75`
-would stop drafting when MTP head confidence drops below 0.75, improving
-acceptance (94.1%) but paradoxically reducing throughput (1.82x) because
-it cuts draft sequences short, reducing average verified-tokens-per-step.
+2.05x speedup over MTP-off with 71.20 tok/s (stddev 0.03). Setting
+`p_min=0.75` would stop drafting when MTP head confidence drops below 0.75,
+improving acceptance (94.0%) but paradoxically reducing throughput (1.73x)
+because it cuts draft sequences short, reducing average verified-tokens-
+per-step.
 
 ### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
 
@@ -132,12 +134,16 @@ spec-type none.
 
 ## OOM ladder
 
-1. Reduce `--fit-target` (2048 → 1536 per GPU)
-2. Reduce `-ub 128` to `-ub 64`
+1. Reduce `-ub 128` to `-ub 64` (smaller micro-batch reduces compute buffer)
+2. If still compute/prefill OOM, increase `--fit-target` (2048 → 3072 or
+   4096 per GPU) to allow the fitter to offload some weights to CPU
 3. Switch KV to Q8_0 (`-ctk q8_0 -ctv q8_0`) — preserves 128K context
 4. Only then reduce `-c 131072` to `-c 65536`
 
 Do not sacrifice 128K context before trying Q8_0 KV.
+Reducing fit-target (e.g. 2048 → 1536) is NOT an OOM recovery step — it
+asks the fitter to use MORE VRAM (less margin), which is the opposite
+of relief.
 
 ## First-boot results (2026-08-14)
 
@@ -149,11 +155,24 @@ GPU1: 28896 MiB used (of 32607 MiB)
 Total: ~55.0 GiB (matches budget estimate of ~55.4 GiB)
 System RAM: 5.6 GiB used, 37 GiB free
 
-MTP draft acceptance: 90-96% across 5 probes
-Generation speed: 46.9-71.8 tok/s (varies by task)
-Prompt speed: 84.9-434.1 tok/s
+MTP draft acceptance: 75-96% across probes
+Generation speed: 63-80 tok/s (varies by task)
+Prompt speed: 74-478 tok/s
 system_fingerprint: b10439-94e82e8ae
 ```
+
+Long prefill (66,591 prompt tokens): prefill 1,712 tok/s, decode 63.4 tok/s,
+no crash or quality collapse.
+
+Phase 4 rigorous benchmark (fixed seed, temp=0, 5 runs per config):
+
+| Config       | Mean tok/s | StdDev | Speedup | Accept Rate |
+|-------------|----------:|-------:|--------:|------------:|
+| MTP-off     |     34.71 |   0.01 |   1.00x |         N/A |
+| n=2, p=0    |     71.20 |   0.03 |   2.05x |       77.6% |
+| n=2, p=0.75 |     60.18 |   0.04 |   1.73x |       94.0% |
+| n=3, p=0    |     81.35 |   0.29 |   2.34x |       70.7% |
+| n=3, p=0.75 |     66.61 |   0.71 |   1.92x |       93.1% |
 
 No OOM, no kernel errors, no NVIDIA Xid. All API health checks pass.
 

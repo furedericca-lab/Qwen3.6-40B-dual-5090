@@ -49,6 +49,27 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Verification: llama-server --list-devices, /health, /v1/models, nvidia-smi, free -h, ss -tlnp, dmesg
 - Residual risk: None — Phase 2+3 fully verified, server stable
 
+## 2026-08-14T22:00:00Z [qwen36-40b-eleanor-llamacpp]
+
+- Summary: Post-archive cleanup. Four fixes applied: (1) Phase 3 T020-T026
+  all marked complete with evidence — including T025 long-prefill probe
+  (66,591 prompt tokens, prefill 1,712 tok/s, decode 63.4 tok/s, no crash).
+  (2) OOM ladder corrected: reduce ubatch first, then relax fit-target
+  (increase, not decrease), then Q8_0 KV, then reduce context. Reducing
+  fit-target is NOT OOM recovery (it asks the fitter to use more VRAM).
+  (3) #23302 reference corrected: was superseded by #23335; fixed-seed
+  testing in #23335 showed Q8_0 agreeing across no-MTP and MTP n=1-5.
+  (4) Phase 4 rigorous benchmark added: fixed seed, temperature 0, same
+  prompt, warm-up 1 + 5 formal runs per config. Results: n=3/p=0 is
+  fastest (81.35 tok/s, 2.34x speedup, stddev 0.29); n=2/p=0 is the
+  balanced default (71.20 tok/s, 2.05x, stddev 0.03). Power draw measured:
+  MTP-off 593W, n=2/p=0 610W, n=3/p=0 643W.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md,
+  decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/probe-long-prefill.sh;
+  bash -n scripts/benchmark-mtp.sh; evidence/mtp-benchmark/RESULTS.md
+- Residual risk: None
+
 ## 2026-08-14T21:00:00Z [qwen36-40b-eleanor-llamacpp]
 
 - Summary: Scope archived. All 4 phases complete, all exit criteria met. Deployment scope moved from .scopes/qwen36-40b-eleanor-llamacpp/ to .scopes/archive/qwen36-40b-eleanor-llamacpp/. Updated AGENTS.md and README.md to reflect archived status and deployment completion. Updated wiki references to point to archive path.

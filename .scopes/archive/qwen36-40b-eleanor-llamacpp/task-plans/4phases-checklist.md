@@ -40,7 +40,7 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
   - `uname -r` = 7.0.0-28-generic, taint=4096 (DKMS O), no BAD_PAGE/Oops/NVIDIA-Xid
   - `nvidia-smi` shows both GPUs idle (2 MiB used), `free -h` shows 40 GiB free
   - `bash -n scripts/llama-server-first-boot.sh` passes
-- Parameter analysis: 128K F16 KV budget = ~12.0 GiB main KV (24 dense layers * 4 kv heads * 256 head_dim * 131072 * 2 bytes * 2 for K+V) + ~0.5 GiB MTP draft KV. --fit-target set to 2048,2048 (runtime VRAM margin per GPU, not KV reservation). --no-kv-offload REMOVED: in llama.cpp KV offload to GPU is the default; --no-kv-offload would force KV to CPU. MTP: --spec-type draft-mtp --spec-draft-n-max 2 (n-max=3 Qwen3.6 drift bug #23302 was closed — Q8_0 unaffected at n=1-5; n-max=2 is the conservative baseline, not final), --spec-draft-n-min 0, --spec-draft-p-min 0.75 (baseline value, Phase 4 will test p_min=0 vs 0.75). Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0 (Qwen3.6 official coding params). MTP_MODE: MTP on/off controlled via MTP_MODE env var, not $@ --spec-type none (llama.cpp appends spec types into a bitmask, so draft-mtp + none still enables MTP).
+- Parameter analysis: 128K F16 KV budget = ~12.0 GiB main KV (24 dense layers * 4 kv heads * 256 head_dim * 131072 * 2 bytes * 2 for K+V) + ~0.5 GiB MTP draft KV. --fit-target set to 2048,2048 (runtime VRAM margin per GPU, not KV reservation). --no-kv-offload REMOVED: in llama.cpp KV offload to GPU is the default; --no-kv-offload would force KV to CPU. MTP: --spec-type draft-mtp --spec-draft-n-max 2 (n-max=3 drift bug #23302 was superseded by #23335; fixed-seed testing showed Q8_0 agreeing across no-MTP and MTP n=1-5; n-max=2 is the conservative baseline, not final), --spec-draft-n-min 0, --spec-draft-p-min 0.75 (baseline value, Phase 4 will test p_min=0 vs 0.75). Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0 (Qwen3.6 official coding params). MTP_MODE: MTP on/off controlled via MTP_MODE env var, not $@ --spec-type none (llama.cpp appends spec types into a bitmask, so draft-mtp + none still enables MTP).
 - Issues/blockers: None
 - Resolutions: N/A
 - Checkpoint confirmed: Yes — binary, artifact, system, and launcher are ready for Phase 2
@@ -50,7 +50,7 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
 - Batch date: 2026-08-14
 - Upstream sync: llama.cpp fork efb81ab merged with upstream/master 885c5bb (42 commits), merge commit 94e82e8ae. No conflicts. DIO patches preserved. Recompiled and verified.
 - Completed tasks: T010 (128K startup successful, GPU0=26144 MiB, GPU1=28896 MiB), T011 (/health OK, /v1/models lists model with n_ctx=131072), T012 (GPU/RAM footprint recorded, MTP draft acceptance 90-96%, gen 46-72 tok/s, prompt 85-434 tok/s), T013 (localhost-only bind confirmed on 127.0.0.1:8000)
-- Behavior probes (Phase 3 inline): math (2+3=5, correct), Chinese (quantum computing explanation, fluent), JSON (valid object, correct), Python (merge_sorted_lists, correct), summary (3 bullet points, accurate)
+- Behavior probes (Phase 3 inline): math (2+3=5, correct), Chinese (quantum computing explanation, fluent), JSON (valid object, correct), Python (merge_sorted_lists, correct), summary (3 bullet points, accurate). Long prefill: 66,591 prompt tokens (~66K), prefill 1,712 tok/s, decode 63.4 tok/s, no crash or quality collapse.
 - Evidence commands:
   - `llama-server --list-devices` shows CUDA0/CUDA1 RTX 5090
   - `curl http://127.0.0.1:8000/health` returns `{"status": "ok"}`
@@ -75,17 +75,18 @@ description: Execution and verification checklist for qwen36-40b-eleanor-llamacp
 ### Phase 4 complete — 2026-08-14
 - Phase: 4
 - Batch date: 2026-08-14
-- Completed tasks: T030 (MTP-off baseline: 34.71 tok/s), T031 (MTP-on baseline n=2/p=0.75: 63.10 tok/s), T032 (quality verified across all configs), T033 (4-config throughput comparison), T034 (docs updated to production default n=2/p=0)
+- Completed tasks: T030 (MTP-off baseline: 34.71 tok/s), T031 (MTP-on baseline n=2/p=0.75: 60.18 tok/s), T032 (quality verified across all configs), T033 (5-config rigorous benchmark with fixed seed/temp=0/5 runs), T034 (docs updated to production default n=2/p=0)
 - Evidence commands:
-  - `ls evidence/mtp-comparison/` shows 5 configurations x 5 probes + RESULTS.md
-  - MTP-off mean: 34.71 tok/s (baseline)
-  - n=2/p=0 mean: 73.52 tok/s (2.12x, 82.9% acceptance) ← production default
-  - n=2/p=0.75 mean: 63.10 tok/s (1.82x, 94.1% acceptance)
-  - n=3/p=0 mean: 78.60 tok/s (2.26x, 69.9% acceptance)
-  - n=3/p=0.75 mean: 69.90 tok/s (2.01x, 93.5% acceptance)
+  - `ls evidence/mtp-benchmark/` shows 5 configs x 5 runs + summaries + RESULTS.md
+  - MTP-off mean: 34.71 tok/s (stddev 0.01, baseline)
+  - n=2/p=0 mean: 71.20 tok/s (2.05x, stddev 0.03, 77.6% acceptance) ← balanced production default
+  - n=2/p=0.75 mean: 60.18 tok/s (1.73x, stddev 0.04, 94.0% acceptance)
+  - n=3/p=0 mean: 81.35 tok/s (2.34x, stddev 0.29, 70.7% acceptance) ← maximum throughput
+  - n=3/p=0.75 mean: 66.61 tok/s (1.92x, stddev 0.71, 93.1% acceptance)
+  - Power draw: MTP-off 593W, n=2/p=0 610W, n=3/p=0 643W
   - All quality probes pass: correct math, fluent Chinese, valid JSON, correct Python, accurate summary
   - Kernel taint 4096 (normal), no BAD_PAGE/Oops/Xid across all runs
   - VRAM: 52-54 GiB total depending on config, all within dual-5090 budget
 - Issues/blockers: None
 - Resolutions: N/A
-- Checkpoint confirmed: Yes — all 4 phases complete, production default is n=2/p=0
+- Checkpoint confirmed: Yes — all 4 phases complete, production default is n=2/p=0 (balanced), max throughput is n=3/p=0

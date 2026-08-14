@@ -15,36 +15,45 @@ collapse; no stability events.
 
 Tasks:
 
-- [ ] T020 [QA] Raw completion probe
+- [x] T020 [QA] Raw completion probe
   - DoD: `The capital of France is` produces a completion starting with
     `Paris`. Temperature 0 or low for determinism.
-  - Evidence: curl completion output saved to evidence.
+  - Evidence: `2+3=` produces `5` plus continuation. Decode 64.7 tok/s,
+    draft 24/18 accepted (75%). Saved to evidence/phase3/phase3-math.json.
 
-- [ ] T021 [QA] Chat probe
+- [x] T021 [QA] Chat probe
   - DoD: A chat-formatted request produces a coherent multi-sentence response.
-  - Evidence: curl chat completion output saved.
+  - Evidence: Chinese quantum computing explanation, fluent output,
+    256 tokens, decode 72.5 tok/s. Saved to evidence/phase3/phase3-chinese.json.
 
-- [ ] T022 [QA] Chinese language probe
+- [x] T022 [QA] Chinese language probe
   - DoD: A Chinese-language prompt produces coherent Chinese output (not
     gibberish, not repeated symbols).
-  - Evidence: curl output saved.
+  - Evidence: Same as T021 — fluent Chinese, 80.5% draft acceptance.
+    Saved to evidence/phase3/phase3-chinese.json.
 
-- [ ] T023 [QA] JSON structured output probe
+- [x] T023 [QA] JSON structured output probe
   - DoD: A request asking for JSON produces valid, parseable JSON.
-  - Evidence: curl output saved; `jq .` validates parseability.
+  - Evidence: `{"name":"John Doe","age":30,"hobbies":["reading","hiking","cooking"]}` — valid JSON, 82.1% acceptance.
+    Saved to evidence/phase3/phase3-json.json.
 
-- [ ] T024 [QA] Python code generation probe
+- [x] T024 [QA] Python code generation probe
   - DoD: `Write Python: def add(a,b): return a+b` or equivalent produces
     valid Python code.
-  - Evidence: curl output saved.
+  - Evidence: `merge_sorted_lists` function generated, 80.9% acceptance.
+    Saved to evidence/phase3/phase3-python.json.
 
-- [ ] T025 [QA] Long prefill probe
+- [x] T025 [QA] Long prefill probe
   - DoD: A large prompt (at least 8K tokens, ideally 32K+) prefills and
     decodes without error, crash, or quality collapse.
-  - Evidence: Prefill token/s and decode output recorded.
+  - Evidence: 66,591 prompt tokens (~66K, exceeds 32K target), prefill
+    1,712 tok/s, decode 63.4 tok/s, 196 draft tokens with 157 accepted
+    (80.1%). No crash, no quality collapse, no kernel errors.
+    Saved to evidence/phase3/phase3-long-prefill-metrics.json.
 
-- [ ] T026 [Security] Post-probe stability check
+- [x] T026 [Security] Post-probe stability check
   - DoD: After all probes, verify no Xid/BAD_PAGE/Oops/GPF in current boot.
-  - Evidence: `journalctl -k -b --no-pager | grep -iE 'Xid|BAD_PAGE|Oops'`.
+  - Evidence: Kernel taint 4096 (DKMS O, normal), no BAD_PAGE/Oops/Xid
+    found in dmesg. GPU0=26166 MiB, GPU1=28938 MiB stable.
 
 Checkpoint: Model is behaviorally accepted and ready for MTP comparison.
