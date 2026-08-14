@@ -1,12 +1,10 @@
 ---
 title: Buffered upstream verifier BAD_PAGE trigger investigation
 type: debugging
-status: current
+status: historical
 scope: qwen3.6-40b-eleanor-deployment
 related_scopes: []
 related_files:
-  - scripts/verify-source-upstream-buffered-incident.py
-  - scripts/run-buffered-io-probe.sh
   - scripts/verify-source-upstream-direct.py
   - AGENTS.md
 source_docs: []
@@ -16,11 +14,18 @@ tags:
   - buffered-io
   - o-direct
   - trigger-probe
-last_checked: 2026-08-13
-updated: 2026-08-13T13:14:03Z
+last_checked: 2026-08-14
+updated: 2026-08-14T00:00:00Z
 ---
 
 # Buffered upstream verifier BAD_PAGE trigger investigation
+
+> **Historical note (2026-08-14):** This investigation was conducted during
+> the archived vLLM/MXFP8 deployment scope. The probe scripts
+> (`verify-source-upstream-buffered-incident.py`, `run-buffered-io-probe.sh`)
+> were removed when the project switched to llama.cpp. The incident findings
+> remain valid for large-model safety on this host. The production identity
+> verifier `scripts/verify-source-upstream-direct.py` is retained.
 
 ## Incident
 
@@ -30,7 +35,16 @@ The exact taint decoding is `4128 = 4096 + 32`: `4096` is `O` for the normally l
 
 ## Probe Design
 
-`scripts/verify-source-upstream-buffered-incident.py` remains the one baseline workload. Its `--probe` mode requires exactly one repository-relative file and a byte limit. It supports `--start-offset`, `--chunk-mib`, and `--repeats`; it records device, inode, byte range, boot taint, and new kernel signatures in JSON. `scripts/run-buffered-io-probe.sh` rejects a dirty boot, creates an ignored per-run evidence directory, captures journal records from the run start, and optionally uses `--trace-syscalls` to preserve file descriptors, offsets, read sizes, timing, and paths through strace.
+The buffered-incident probe scripts were removed during the vLLM-to-llama.cpp
+transition. Their design is documented here for historical reference:
+
+The baseline workload used `--probe` mode with exactly one repository-relative
+file and a byte limit. It supported `--start-offset`, `--chunk-mib`, and
+`--repeats`; it recorded device, inode, byte range, boot taint, and new kernel
+signatures in JSON. The wrapper script rejected a dirty boot, created an
+ignored per-run evidence directory, captured journal records from the run
+start, and optionally used `--trace-syscalls` to preserve file descriptors,
+offsets, read sizes, timing, and paths through strace.
 
 The first fresh-boot probe is one 1 MiB read of `model-00001-of-00017.safetensors`; each subsequent fresh boot changes only one variable: read length, chunk size, offset, repetition count, or shard. The probe stops at the first new kernel event. Initial no-trace runs preserve the original timing; a successful reproduction is then repeated once with syscall tracing for correlation.
 

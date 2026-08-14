@@ -7,19 +7,11 @@
     ],
     "symbols": {}
   },
-  "scripts/run-buffered-io-probe.sh": {
+  "scripts/llama-server-first-boot.sh": {
     "anchors": [],
     "definition_pages": [],
     "pages": [
-      ".wiki/debugging/buffered-upstream-verifier-bad-page.md"
-    ],
-    "symbols": {}
-  },
-  "scripts/verify-source-upstream-buffered-incident.py": {
-    "anchors": [],
-    "definition_pages": [],
-    "pages": [
-      ".wiki/debugging/buffered-upstream-verifier-bad-page.md"
+      ".wiki/how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md"
     ],
     "symbols": {}
   },

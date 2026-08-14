@@ -3,8 +3,12 @@ title: Decision Log
 type: decision-log
 status: current
 generated_by: /home/build/.codex/skills/wiki-note/scripts/wiki_note.py
-updated: 2026-08-13T13:15:31Z
+updated: 2026-08-14T07:22:34Z
 ---
+
+
+
+
 
 
 
@@ -13,8 +17,8 @@ updated: 2026-08-13T13:15:31Z
 # Decision Log
 
 <!-- BEGIN AUTO -->
-- Last rebuilt: 2026-08-13T13:15:31Z
-- Decision count: 0
+- Last rebuilt: 2026-08-14T07:22:34Z
+- Decision count: 1
 
 ## Draft Decisions
 
@@ -22,7 +26,7 @@ updated: 2026-08-13T13:15:31Z
 
 ## Accepted Decisions
 
-- None.
+- 2026-08-14 | [Switch from vLLM to llama.cpp deployment](decisions/switch-from-vllm-to-llama-cpp-deployment.md) | scope: qwen36-40b-eleanor-llamacpp
 
 ## Current Decisions
 
