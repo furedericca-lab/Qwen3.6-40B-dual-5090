@@ -90,3 +90,29 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
 - Verification: bash -n scripts/llama-server-first-boot.sh; rg 'n-max=3' across scope and wiki docs
 - Residual risk: None — documentation-only update, no runtime parameter changes.
+
+## 2026-08-14T22:30:00Z [qwen36-40b-profile-optimization]
+
+- Summary: Profile optimization scope opened. Fixed benchmark tool (warm-up
+  excluded from stats, continuous 200ms power sampling, P95 latency, J/token).
+  Ran comprehensive benchmarks at temp=0 and temp=0.6. Key findings:
+  (1) n=3/p=0 at temp=0.6 is 8.0% faster than n=2/p=0 (73.76 vs 68.30 tok/s),
+  confirming n=3 as the agent profile default.
+  (2) p_min sweep (0/0.05/0.10/0.20) showed zero effect — model's MTP
+  confidence is consistently above 0.20. p_min=0 is the only viable setting.
+  (3) n=4 is slower than n=3 (73.62 vs 73.76 tok/s), acceptance near 50%
+  threshold. No further n-max exploration needed.
+  (4) Ubatch increased from 128 to 256: +20-34% prefill, zero decode
+  regression, ~130 MiB/GPU VRAM cost. ub=512 appears to OOM.
+  (5) n=3 at temp=0.6 is also more energy-efficient (8.46 vs 8.75 J/token).
+  Launcher rewritten with PROFILE support (agent/balanced/creative/long).
+  Agent profile (default): n=3/p=0, b=1024/ub=256, temp=0.6. Balanced: n=2/p=0,
+  temp=0.7. Creative: MTP off, temp=1.0. Long: 256K Q8_0 KV (experimental).
+  Updated AGENTS.md, README.md, archived contracts, wiki how-to, wiki
+  decisions with profile architecture and new benchmark data.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md,
+  decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/llama-server-first-boot.sh;
+  bash -n scripts/benchmark-mtp.sh; PROFILE=agent smoke test passed
+- Residual risk: reasoning-preserve and cache-reuse not yet tested (Phase 3);
+  256K Q8_0 KV profile not yet tested (Phase 4)

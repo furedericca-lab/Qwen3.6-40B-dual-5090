@@ -16,15 +16,54 @@ if [[ ! -f "$model" ]]; then
   exit 1
 fi
 
-# MTP mode: on (default) enables --spec-type draft-mtp; off omits all spec args.
-# Do NOT use "$@ --spec-type none" to disable MTP — llama.cpp appends spec types
-# (it does not replace), so passing both draft-mtp and none would still enable MTP.
-MTP_MODE=${MTP_MODE:-on}
+# Profile selection: agent (default), balanced, creative, long
+PROFILE="${PROFILE:-agent}"
 
+# Common baseline (immutable hardware/runtime params)
+common_args=(
+  -m "$model"
+  --load-mode dio
+  -dev CUDA0,CUDA1
+  -sm layer
+  --fit on
+  --fit-target 2048,2048
+  -ctk f16 -ctv f16
+  -c 131072
+  -np 1
+  -b 1024
+  -ub 256
+  -fa on
+  --host 127.0.0.1
+  --port 8000
+)
+
+# Per-profile overrides
 spec_args=()
+sampling_args=()
+context_args=()
 
-case "$MTP_MODE" in
-  on)
+case "$PROFILE" in
+  agent)
+    # Primary profile: MTP n=3/p=0, coding sampling
+    # Validated: 73.76 tok/s decode, 2042 tok/s prefill at 66K, J/token=8.46
+    MTP_N_MAX=${MTP_N_MAX:-3}
+    MTP_P_MIN=${MTP_P_MIN:-0}
+    spec_args=(
+      --spec-type draft-mtp
+      --spec-draft-n-max "$MTP_N_MAX"
+      --spec-draft-n-min 0
+      --spec-draft-p-min "$MTP_P_MIN"
+    )
+    sampling_args=(
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+      --min-p 0
+      --repeat-penalty 1.0
+    )
+    ;;
+  balanced)
+    # Fallback profile: MTP n=2/p=0, slightly higher temperature
     MTP_N_MAX=${MTP_N_MAX:-2}
     MTP_P_MIN=${MTP_P_MIN:-0}
     spec_args=(
@@ -33,36 +72,64 @@ case "$MTP_MODE" in
       --spec-draft-n-min 0
       --spec-draft-p-min "$MTP_P_MIN"
     )
+    sampling_args=(
+      --temp 0.7
+      --top-p 0.95
+      --top-k 20
+      --min-p 0
+      --repeat-penalty 1.0
+    )
     ;;
-  off)
-    # No speculative decoding args — llama.cpp defaults to spec-type none.
+  creative)
+    # Creative profile: MTP off, high temperature
+    # DavidAU: MTP off for temp>1
+    sampling_args=(
+      --temp 1.0
+      --top-p 0.95
+      --top-k 40
+      --min-p 0.05
+      --repeat-penalty 1.0
+    )
+    ;;
+  long)
+    # Long-context profile: 256K context with Q8_0 KV
+    # Experimental — not yet validated
+    context_args=(
+      -c 262144
+      -ctk q8_0
+      -ctv q8_0
+    )
+    MTP_N_MAX=${MTP_N_MAX:-3}
+    MTP_P_MIN=${MTP_P_MIN:-0}
+    spec_args=(
+      --spec-type draft-mtp
+      --spec-draft-n-max "$MTP_N_MAX"
+      --spec-draft-n-min 0
+      --spec-draft-p-min "$MTP_P_MIN"
+    )
+    sampling_args=(
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+      --min-p 0
+      --repeat-penalty 1.0
+    )
     ;;
   *)
-    echo "MTP_MODE must be on or off, got: $MTP_MODE" >&2
+    echo "PROFILE must be agent, balanced, creative, or long, got: $PROFILE" >&2
     exit 2
     ;;
 esac
 
+# MTP_MODE override: if set to off, remove all speculative args regardless of profile
+MTP_MODE=${MTP_MODE:-on}
+if [[ "$MTP_MODE" == "off" ]]; then
+  spec_args=()
+fi
+
 exec "$server" \
-  -m "$model" \
-  --load-mode dio \
-  -dev CUDA0,CUDA1 \
-  -sm layer \
-  --fit on \
-  --fit-target 2048,2048 \
-  -ctk f16 \
-  -ctv f16 \
-  -c 131072 \
-  -np 1 \
-  -b 512 \
-  -ub 128 \
-  -fa on \
+  "${common_args[@]}" \
+  "${context_args[@]}" \
   "${spec_args[@]}" \
-  --temp 0.6 \
-  --top-p 0.95 \
-  --top-k 20 \
-  --min-p 0 \
-  --repeat-penalty 1.0 \
-  --host 127.0.0.1 \
-  --port 8000 \
+  "${sampling_args[@]}" \
   "$@"

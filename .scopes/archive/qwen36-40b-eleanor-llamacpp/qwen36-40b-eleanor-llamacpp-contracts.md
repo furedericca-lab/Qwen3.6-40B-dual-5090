@@ -41,7 +41,9 @@ overwritten, renamed, or deleted without explicit user authorization.
 
 ## Runtime Contract
 
-`scripts/llama-server-first-boot.sh` is the canonical launcher. It must use:
+`scripts/llama-server-first-boot.sh` is the canonical launcher. It supports
+profile-based configuration via the `PROFILE` environment variable. The
+agent profile (default) uses:
 
 ```text
 --load-mode dio
@@ -52,10 +54,10 @@ overwritten, renamed, or deleted without explicit user authorization.
 -ctk f16 -ctv f16
 -c 131072
 -np 1
--b 512 -ub 128
+-b 1024 -ub 256
 -fa on
 --spec-type draft-mtp
---spec-draft-n-max 2
+--spec-draft-n-max 3
 --spec-draft-n-min 0
 --spec-draft-p-min 0
 --temp 0.6
@@ -230,17 +232,17 @@ journalctl -k -b --no-pager | grep -iE 'BAD_PAGE|Oops|general protection|Xid'
 - The archived vLLM scope is historical only; it does not constrain this scope.
 - The GGUF contains one MTP/nextn layer (`nextn_predict_layers: 1`). Runtime
   MTP is explicitly enabled with `--spec-type draft-mtp`; the llama.cpp default
-  speculative decoding type is `none`. `n-max=2` with `p_min=0` is the
-  production default after Phase 4 benchmarking (2.05x speedup vs MTP-off,
-  71.20 tok/s, stddev 0.03). The n-max=3 Qwen3.6 output drift bug
-  (llama.cpp #23302) was superseded by #23335; fixed-seed testing in #23335
-  showed Q8_0 agreeing across no-MTP and MTP n=1–5. Phase 4 benchmark
-  tested five configurations (MTP-off + n=2/3 × p_min=0/0.75) with fixed
-  seed, temperature 0, and 5 repeated runs per config. Results:
-  n=3,p=0 is fastest (2.34x, 81.35 tok/s, stddev 0.29);
-  n=2,p=0 is the balanced default (2.05x, 71.20 tok/s, stddev 0.03);
-  n=2,p=0.75 has highest acceptance (94.0%) but lower speed (1.73x);
-  n=3,p=0.75 is moderate (1.92x, 66.61 tok/s). Disabling MTP for comparison uses
+  speculative decoding type is `none`. The agent profile (default) uses
+  n-max=3 with p_min=0 after profile optimization benchmarking (2.12x speedup
+  vs MTP-off, 73.76 tok/s at temp=0.6, stddev 0.015). n=3 was confirmed
+  8.0% faster than n=2 at production temperature 0.6, with better energy
+  efficiency (8.46 vs 8.75 J/token). p_min sweep (0/0.05/0.10/0.20) showed
+  no effect — the model's MTP confidence is consistently above 0.20.
+  n=4 is slower than n=3 (73.62 vs 73.76 tok/s) with acceptance near the
+  50% viability threshold. The n=2 balanced profile runs at 68.30 tok/s
+  (1.96x). The n-max=3 Qwen3.6 output drift bug (llama.cpp #23302) was
+  superseded by #23335; fixed-seed testing in #23335 showed Q8_0 agreeing
+  across no-MTP and MTP n=1–5. Disabling MTP for comparison uses
   `MTP_MODE=off` in the launcher, which omits all speculative args entirely.
   Do NOT use `--spec-type none` via `$@` to disable MTP — llama.cpp appends
   spec types into a bitmask, so passing both `draft-mtp` and `none` still

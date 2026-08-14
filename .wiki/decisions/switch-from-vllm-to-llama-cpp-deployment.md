@@ -49,27 +49,34 @@ In llama.cpp, KV offload to GPU is the **default** — `--no-kv-offload`
 **disables** GPU KV and forces KV to CPU/RAM. Since the target is all-KV-on-GPU,
 this flag was removed. The default behavior (KV on GPU) is what we want.
 
-### --spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-p-min 0 (production default)
+### --spec-type draft-mtp --spec-draft-n-max 3 --spec-draft-p-min 0 (agent profile default)
 
-`n-max=2` with `p_min=0` is the balanced production default after Phase 4
-rigorous benchmarking (fixed seed, temperature 0, 5 runs per config).
-Phase 4 tested five configurations and found:
+`n-max=3` with `p_min=0` is the agent profile default after profile optimization
+benchmarking. At production temperature 0.6, n=3 produces 73.76 tok/s (2.12x
+speedup, stddev 0.015), which is 8.0% faster than n=2/p=0 (68.30 tok/s) and
+more energy-efficient (8.46 vs 8.75 J/token). p_min sweep (0/0.05/0.10/0.20)
+showed no effect — the model's MTP confidence is consistently above 0.20.
+n=4 is slower than n=3 (73.62 vs 73.76 tok/s) with acceptance near the 50%
+viability threshold. The n-max=3 drift bug (#23302) was superseded by #23335;
+fixed-seed testing showed Q8_0 agreeing across no-MTP and MTP n=1-5.
 
-- n=2, p=0: 71.20 tok/s (2.05x speedup, stddev 0.03) ← balanced default
-- n=2, p=0.75: 60.18 tok/s (1.73x, 94.0% acceptance) — high acceptance but slower
-- n=3, p=0: 81.35 tok/s (2.34x, stddev 0.29) ← maximum throughput
-- n=3, p=0.75: 66.61 tok/s (1.92x, 93.1% acceptance)
+### Sampling: server fallback defaults only
 
-The n-max=3 drift bug (#23302) was superseded by #23335; fixed-seed testing
-in #23335 showed Q8_0 agreeing across no-MTP and MTP n=1-5. Quality was
-verified across all configurations: no output degradation at any n-max setting.
+Server sampling parameters are fallback defaults. API callers should pass their
+own sampler overrides per request. The agent profile uses Qwen3.6 official
+precise coding parameters (temp=0.6, top_p=0.95, top_k=20, min_p=0,
+repeat_penalty=1.0). `repeat-penalty 1.0` disables repetition penalty, which
+is recommended when using MTP. Q8_0 does not benefit from repeat penalty;
+DavidAU's 1.05-1.1 recommendation targets lower quants. Only increase to
+1.02-1.05 in a creative profile if looping is stably reproduced — never globally.
+For creative/RP use, use `PROFILE=creative` or pass sampler overrides per-request.
 
-### Sampling: --top-k 20 --min-p 0 --repeat-penalty 1.0
+### Ubatch 256 (increased from 128)
 
-Qwen3.6 official precise coding parameters. `repeat-penalty 1.0` disables
-repetition penalty, which is recommended when using MTP. For creative/RP use,
-a separate DavidAU profile (top_k=40, min_p=0.05, repeat_penalty=1.02-1.15)
-can be configured later.
+Ubatch was increased from 128 to 256 after benchmarking showed +20-34%
+prefill improvement with zero decode regression. At 66K prompt length,
+ub=256 delivers 2042 tok/s prefill vs 1706 tok/s for ub=128 (+20%).
+Decode speed is unchanged (73.76 vs 73.66 tok/s). VRAM cost is ~130 MiB/GPU.
 
 ### OOM ladder: preserve 128K context
 
