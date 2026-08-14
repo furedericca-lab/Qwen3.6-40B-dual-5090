@@ -70,3 +70,13 @@ disables repetition penalty, which is recommended when using MTP.
 The OOM ladder prioritizes preserving 128K context: reduce fit-target, then
 ubatch, then switch KV to Q8_0 (halves KV budget while keeping 128K), and only
 then reduce context to 64K.
+
+### MTP_MODE launcher variable (not $@ --spec-type none)
+
+The launcher uses `MTP_MODE=on|off` instead of passing `--spec-type none`
+through `$@`. This is because llama.cpp **appends** `--spec-type` values into a
+bitmask rather than replacing the previous value. If the launcher already sets
+`--spec-type draft-mtp` and `$@` adds `--spec-type none`, both are in the
+bitmask and MTP remains enabled. The `MTP_MODE=off` approach omits all
+speculative decoding args entirely, which is the only reliable way to get a
+clean MTP-off baseline for Phase 4 A/B testing.

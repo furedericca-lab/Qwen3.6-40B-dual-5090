@@ -45,7 +45,8 @@ Checkpoint: Server is running stably at 128K and ready for behavior probes.
 
 If 128K startup fails with OOM, follow the ladder before reporting failure:
 
-A. If model load/fit only needs a small VRAM reduction:
+A. If auto-fit is slightly too conservative and more usable VRAM is needed,
+   reduce the reserved fit margin:
    `--fit-target 2048,2048` → `1536,1536`
 
 B. If compute/prefill OOM:

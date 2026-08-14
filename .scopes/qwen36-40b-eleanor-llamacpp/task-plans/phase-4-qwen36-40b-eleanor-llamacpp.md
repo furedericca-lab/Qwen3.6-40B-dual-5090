@@ -15,15 +15,20 @@ throughput (tok/s) and output quality, recorded as evidence.
 Tasks:
 
 - [ ] T030 [Infra] Establish MTP-off baseline
-  - DoD: Restart server with `--spec-type none` (the llama.cpp default). Run raw,
-    Chinese, and Python probes. Record tok/s. The same MTP GGUF is used; only
-    `--spec-type` differs between runs.
+  - DoD: Restart server with `MTP_MODE=off scripts/llama-server-first-boot.sh`.
+    The launcher omits all speculative decoding args; llama.cpp defaults to
+    spec-type none. Do NOT use `$@ --spec-type none` — llama.cpp appends
+    spec types (it does not replace them), so passing both `--spec-type
+    draft-mtp` and `--spec-type none` would still enable MTP via bitmask.
+    Run raw, Chinese, and Python probes. Record tok/s. The same MTP GGUF
+    is used; only `MTP_MODE` differs between runs.
   - Evidence: Probe outputs and timing saved to evidence/mtp-off/.
 
 - [ ] T031 [Infra] Establish MTP-on baseline
-  - DoD: Server with MTP enabled (`--spec-type draft-mtp`, `--spec-draft-n-max 2`,
-    `--spec-draft-n-min 0`, `--spec-draft-p-min 0.75`). Run the same raw, Chinese,
-    and Python probes. Record tok/s.
+  - DoD: Server with MTP enabled (`MTP_MODE=on scripts/llama-server-first-boot.sh`,
+    which passes `--spec-type draft-mtp`, `--spec-draft-n-max 2`,
+    `--spec-draft-n-min 0`, `--spec-draft-p-min 0.75`). Run the same raw,
+    Chinese, and Python probes. Record tok/s.
   - Evidence: Probe outputs and timing saved to evidence/mtp-on/.
 
 - [ ] T032 [QA] Compare quality

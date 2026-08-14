@@ -34,3 +34,10 @@ Append-only history for wiki updates caused by scope work, implementation closeo
 - Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md, reference/qwen35-kv-cache-budget.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
 - Verification: bash -n scripts/llama-server-first-boot.sh; contracts.md cross-checked
 - Residual risk: All parameter corrections are pre-runtime; Phase 2 startup is the validation gate.
+
+## 2026-08-14T12:00:00Z [qwen36-40b-eleanor-llamacpp]
+
+- Summary: Fixed MTP-off mechanism for Phase 4. The previous approach of using `$@ --spec-type none` to override `--spec-type draft-mtp` does NOT work — llama.cpp appends spec types into a bitmask rather than replacing them, so both draft-mtp and none would be active and MTP would remain enabled. Replaced with `MTP_MODE` environment variable: `MTP_MODE=on` (default) passes `--spec-type draft-mtp` and related flags; `MTP_MODE=off` omits all speculative args entirely, letting llama.cpp default to spec-type none. Also fixed Phase 2 OOM ladder wording: "VRAM reduction" → "reduce the reserved fit margin" (fit-target is a margin, not a reservation). Updated script, AGENTS.md, contracts.md, Phase 2/4 task plans, wiki how-to and decisions.
+- Pages: how-to/llama-server-first-boot-recipe-for-qwen3-6-40b-q8-0.md, decisions/switch-from-vllm-to-llama-cpp-deployment.md
+- Verification: bash -n scripts/llama-server-first-boot.sh; rg --spec-type none across scope docs
+- Residual risk: None — MTP_MODE is a simple conditional, no runtime dependency.

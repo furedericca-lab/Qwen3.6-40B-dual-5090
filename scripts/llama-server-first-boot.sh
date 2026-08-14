@@ -16,6 +16,31 @@ if [[ ! -f "$model" ]]; then
   exit 1
 fi
 
+# MTP mode: on (default) enables --spec-type draft-mtp; off omits all spec args.
+# Do NOT use "$@ --spec-type none" to disable MTP — llama.cpp appends spec types
+# (it does not replace), so passing both draft-mtp and none would still enable MTP.
+MTP_MODE=${MTP_MODE:-on}
+
+spec_args=()
+
+case "$MTP_MODE" in
+  on)
+    spec_args=(
+      --spec-type draft-mtp
+      --spec-draft-n-max 2
+      --spec-draft-n-min 0
+      --spec-draft-p-min 0.75
+    )
+    ;;
+  off)
+    # No speculative decoding args — llama.cpp defaults to spec-type none.
+    ;;
+  *)
+    echo "MTP_MODE must be on or off, got: $MTP_MODE" >&2
+    exit 2
+    ;;
+esac
+
 exec "$server" \
   -m "$model" \
   --load-mode dio \
@@ -30,10 +55,7 @@ exec "$server" \
   -b 512 \
   -ub 128 \
   -fa on \
-  --spec-type draft-mtp \
-  --spec-draft-n-max 2 \
-  --spec-draft-n-min 0 \
-  --spec-draft-p-min 0.75 \
+  "${spec_args[@]}" \
   --temp 0.6 \
   --top-p 0.95 \
   --top-k 20 \

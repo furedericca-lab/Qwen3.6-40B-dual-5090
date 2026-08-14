@@ -115,10 +115,15 @@ Bind to `127.0.0.1` only. Do not expose the API on a LAN interface unless the
 user explicitly approves it. Do not use CPU weight offload as the primary
 strategy.
 
-The launcher passes `$@` to allow controlled experimental overrides (e.g.
-Phase 4 uses `scripts/llama-server-first-boot.sh --spec-type none` for MTP-off
-baseline). All appended arguments must be recorded in the evidence for that
-run; do not use `$@` to bypass the canonical baseline without documentation.
+The launcher uses `MTP_MODE` (default `on`) to control speculative decoding.
+`MTP_MODE=on` passes `--spec-type draft-mtp` and related flags; `MTP_MODE=off`
+omits all speculative args, letting llama.cpp default to spec-type none.
+Do NOT use `$@ --spec-type none` to disable MTP — llama.cpp appends spec
+types into a bitmask rather than replacing them, so passing both
+`--spec-type draft-mtp` (from the launcher) and `--spec-type none` (from
+`$@`) would still enable MTP. The `$@` passthrough is available for other
+controlled experimental overrides, but all appended arguments must be
+recorded in the evidence for that run.
 
 ## Large Model Safety
 

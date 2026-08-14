@@ -104,6 +104,23 @@ Enable with `--spec-type draft-mtp`. The `-md` flag is not needed —
 `draft-mtp` uses the MTP heads embedded in the main GGUF. The fork's
 `src/models/qwen35.cpp` has native qwen35 MTP/nextn support.
 
+The launcher uses `MTP_MODE` to control MTP:
+
+```bash
+# MTP on (default)
+MTP_MODE=on scripts/llama-server-first-boot.sh
+
+# MTP off (Phase 4 baseline)
+MTP_MODE=off scripts/llama-server-first-boot.sh
+```
+
+Do NOT use `$@ --spec-type none` to disable MTP. llama.cpp appends
+`--spec-type` values into a bitmask rather than replacing them, so passing
+both `--spec-type draft-mtp` (from the launcher) and `--spec-type none`
+(via `$@`) would still enable MTP. Use `MTP_MODE=off` instead, which omits
+all speculative decoding args entirely, letting llama.cpp default to
+spec-type none.
+
 ## OOM ladder
 
 1. Reduce `--fit-target` (2048 → 1536 per GPU)
